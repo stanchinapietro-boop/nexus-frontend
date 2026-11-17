@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from . import finance
+from . import academic
+from . import ticktick
+from . import life
 from .db import Base, engine, get_db
 
 
@@ -28,6 +31,9 @@ app.add_middleware(
 
 
 app.include_router(finance.router)
+app.include_router(academic.router)
+app.include_router(ticktick.router)
+app.include_router(life.router)
 
 
 @app.get("/api/health")

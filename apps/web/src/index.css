@@ -14,3 +14,35 @@ body {
 }
 :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* iPhone: niente zoom sui campi, tocchi rapidi, niente rimbalzo */
+html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-y: none; }
+button, a, [role="button"] { touch-action: manipulation; }
+@media (max-width: 767px) { input, select, textarea { font-size: 16px !important; } }
+
+/* Scrollbar sottili e scure ovunque */
+* { scrollbar-width: thin; scrollbar-color: #34343a transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #34343a; border-radius: 8px; }
+
+/* Sfondo con un leggero bagliore del colore principale */
+body {
+  background: radial-gradient(900px 420px at 75% -8%, rgb(var(--accent) / 0.07), transparent 70%), #0f0f10;
+  background-attachment: fixed;
+}
+
+/* Pagina Tasks: colonna a sinistra su PC, righe scorrevoli su telefono */
+.tk-layout { display: grid; gap: 1rem; }
+.tk-layout-detail { grid-template-columns: minmax(0,1fr); }
+.tk-details { position: fixed; inset: auto 0 0; z-index: 25; max-height: 70dvh; overflow-y: auto; border-radius: 1.25rem 1.25rem 0 0; box-shadow: 0 -12px 48px rgb(0 0 0 / .45); }
+.tk-side { display: flex; gap: .375rem; overflow-x: auto; scrollbar-width: none; margin: 0 -1rem; padding: 0 1rem .25rem; }
+.tk-side::-webkit-scrollbar { display: none; }
+.tk-group { display: none; }
+@media (min-width: 768px) {
+  .tk-layout { grid-template-columns: 15rem minmax(0, 1fr); gap: 2.5rem; }
+  .tk-layout-detail { grid-template-columns: 13rem minmax(0,1fr) 18rem; gap: 1.25rem; }
+  .tk-details { position: sticky; inset: auto; top: 1rem; max-height: calc(100dvh - 2rem); border-radius: 1rem; box-shadow: none; align-self: start; }
+  .tk-side { flex-direction: column; overflow: visible; margin: 0; padding: 0; gap: .125rem; position: sticky; top: 1rem; align-self: start; }
+  .tk-group { display: block; }
+}

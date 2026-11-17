@@ -27,6 +27,16 @@ export default defineConfig({
     }),
   ],
   // host: true = raggiungibile dalla LAN (iPhone). Il proxy evita problemi di CORS.
-  server: { host: true, port: 5173, proxy: api },
-  preview: { host: true, port: 4173, proxy: api },
+  server: { host: true, port: 5173, proxy: api, allowedHosts: [".ts.net"] },
+  preview: { host: true, port: 4173, proxy: api, allowedHosts: [".ts.net"] },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "charts";
+          if (id.includes("node_modules/react") || id.includes("node_modules/scheduler")) return "react-vendor";
+        },
+      },
+    },
+  },
 });

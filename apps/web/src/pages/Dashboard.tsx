@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, type Note } from "../api";
+import { TodayTasks } from "./Tasks";
 
 function useNow() {
   const [now, setNow] = useState(new Date());
@@ -58,9 +59,11 @@ export default function Dashboard() {
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card label="Backend" value={status} hint="API FastAPI" />
         <Card label="Note salvate" value={String(notes.length)} hint="Dal database" />
-        <Card label="Moduli attivi" value="1 / 9" hint="Overview" />
+        <Card label="Moduli attivi" value="5 / 9" hint="Finance, Academic, Tasks…" />
         <Card label="Versione" value="0.1" hint="Foundation" />
       </div>
+
+      <TodayTasks />
 
       <div className="mt-6 rounded-xl border border-line bg-panel p-4">
         <div className="mb-3 text-sm text-mute">Note create negli ultimi 7 giorni</div>
