@@ -1,21 +1,36 @@
 import {
-  LayoutDashboard, Wallet, GraduationCap, Target, FolderKanban,
-  CalendarDays, BookOpen, ListChecks, Sparkles, Settings, type LucideIcon,
+  Activity, BarChart3, Bell, BookOpen, CalendarDays, FolderKanban, GraduationCap,
+  Inbox, LayoutDashboard, ListChecks, Search, Settings, Sparkles, Target, Wallet,
+  Waypoints, Workflow, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { path: string; label: string; icon: LucideIcon; ready: boolean };
-
 export const NAV: NavItem[] = [
-  { path: "/", label: "Overview", icon: LayoutDashboard, ready: true },
+  { path: "/", label: "Command Center", icon: LayoutDashboard, ready: true },
+  { path: "/inbox", label: "Inbox", icon: Inbox, ready: true },
+  { path: "/ai", label: "AI Assistant", icon: Sparkles, ready: true },
+  { path: "/life", label: "Life Planner", icon: Waypoints, ready: true },
+  { path: "/tasks", label: "Tasks", icon: ListChecks, ready: true },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays, ready: true },
   { path: "/finance", label: "Finance", icon: Wallet, ready: true },
   { path: "/academic", label: "Academic", icon: GraduationCap, ready: true },
-  { path: "/tasks", label: "Tasks", icon: ListChecks, ready: true },
-  { path: "/life", label: "Life Planner", icon: Target, ready: false },
-  { path: "/projects", label: "Projects", icon: FolderKanban, ready: false },
-  { path: "/calendar", label: "Calendar", icon: CalendarDays, ready: false },
-  { path: "/knowledge", label: "Knowledge", icon: BookOpen, ready: false },
-  { path: "/ai", label: "AI Assistant", icon: Sparkles, ready: false },
+  { path: "/projects", label: "Projects", icon: FolderKanban, ready: true },
+  { path: "/knowledge", label: "Second Brain", icon: BookOpen, ready: true },
+  { path: "/health", label: "Health & Fitness", icon: Activity, ready: false },
+  { path: "/goals", label: "Goals & Habits", icon: Target, ready: false },
+  { path: "/analytics", label: "Analytics", icon: BarChart3, ready: false },
+  { path: "/automations", label: "Automations", icon: Workflow, ready: false },
+  { path: "/search", label: "Cerca", icon: Search, ready: true },
+  { path: "/notifications", label: "Notifiche", icon: Bell, ready: true },
   { path: "/settings", label: "Settings", icon: Settings, ready: true },
 ];
 
-export const BOTTOM = ["/", "/finance", "/tasks", "/academic"];
+export const BOTTOM = ["/", "/inbox", "/tasks", "/calendar"];
+
+export function orderedNav(order: string[]): NavItem[] {
+  const paths = new Set([...order, ...NAV.map(item => item.path)]);
+  return Array.from(paths).flatMap(path => {
+    const item = NAV.find(module => module.path === path);
+    return item ? [item] : [];
+  });
+}

@@ -4,11 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0f0f10",
-        panel: "#18181a",
-        raised: "#222225",
-        line: "#2e2e32",
-        mute: "#8d8d94",
+        ink: "rgb(var(--nexus-ink) / <alpha-value>)",
+        panel: "rgb(var(--nexus-panel) / <alpha-value>)",
+        raised: "rgb(var(--nexus-raised) / <alpha-value>)",
+        line: "rgb(var(--nexus-line) / <alpha-value>)",
+        mute: "rgb(var(--nexus-mute) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
       },
     },

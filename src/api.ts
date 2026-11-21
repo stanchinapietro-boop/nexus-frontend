@@ -1,14 +1,28 @@
-const BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const BASE = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_BASE ?? "/api");
 
 export type Note = { id: number; title: string; content: string; created_at: string };
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
+export let viewRevision="";
+export function setViewRevision(value:string){viewRevision=value;}
+export async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  if(!navigator.onLine && init?.method && !["GET","HEAD"].includes(init.method))throw new Error("Offline. Conserva la bozza e riprova dopo la riconnessione.");
+  const old=viewRevision;
+  const guarded=!!old && !!init?.method && !["GET","HEAD"].includes(init.method) && !/^\/(sync|ticktick)\//.test(path);
   const res = await fetch(BASE + path, {
-    headers: { "Content-Type": "application/json" },
+    cache:"no-store",
+    headers: { "Content-Type": "application/json", ...(guarded?{"X-Nexus-Revision":old}:{}) },
     ...init,
   });
+  const next=res.headers.get("X-Nexus-Revision");
+  if(res.ok && guarded && next && viewRevision===old)setViewRevision(next);
   if (res.status === 401) window.dispatchEvent(new Event("nexus:unauthorized"));
-  if (!res.ok) throw new Error(`Errore ${res.status}`);
+  if (!res.ok) {
+    const problem = await res.json().catch(() => null);
+    throw new Error(typeof problem?.detail === "string" ? problem.detail : `Errore ${res.status}`);
+  }
+  if (init?.method && init.method !== "GET" && (/^\/planner\/focus\/\d+\/complete$/.test(path) || /^\/notes(?:\/|$)/.test(path) || /^\/inbox\/\d+\/note$/.test(path))) {
+    window.dispatchEvent(new Event("nexus:notifications-changed"));
+  }
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
@@ -17,6 +31,8 @@ export const api = {
   listNotes: () => req<Note[]>("/notes"),
   createNote: (title: string, content: string) =>
     req<Note>("/notes", { method: "POST", body: JSON.stringify({ title, content }) }),
+  updateNote: (id: number, title: string, content: string) =>
+    req<Note>(`/notes/${id}`, { method: "PUT", body: JSON.stringify({ title, content }) }),
   deleteNote: (id: number) => req<void>(`/notes/${id}`, { method: "DELETE" }),
 };
 
@@ -95,7 +111,7 @@ export type Tx = {
 };
 export type Summary = {
   balance_cents: number; income_cents: number; expense_cents: number;
-  by_category: { name: string; color: string; cents: number }[]; recent: Tx[]; accounts: Account[];
+  by_category: { category_id?: number | null; name: string; color: string; cents: number }[]; recent: Tx[]; accounts: Account[];
 };
 export type NewTx = { type: string; amount_cents: number; day: string; note: string; account_id: number; category_id: number | null };
 
@@ -110,18 +126,30 @@ export const fin = {
   addCategory: (name: string, type: string, color: string) =>
     req<Category>("/finance/categories", { method: "POST", body: j({ name, type, color }) }),
   delCategory: (id: number) => req<void>(`/finance/categories/${id}`, { method: "DELETE" }),
-  txs: (month: string, q = "") => req<Tx[]>(`/finance/transactions?month=${month}&q=${encodeURIComponent(q)}`),
+  txs: (month: string, q = "", filters: Record<string, string> = {}) => {
+    const params = new URLSearchParams({ month, q });
+    for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+    return req<Tx[]>(`/finance/transactions?${params}`);
+  },
   addTx: (t: NewTx) => req<Tx>("/finance/transactions", { method: "POST", body: j(t) }),
   delTx: (id: number) => req<void>(`/finance/transactions/${id}`, { method: "DELETE" }),
 };
 
 export const eur = (cents: number) =>
   (cents / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-export const toCents = (s: string) => Math.round(parseFloat(s.replace(",", ".")) * 100);
+export function toCents(input: string) {
+  const value = input.trim();
+  if (!/^-?\d+(?:[.,]\d{1,2})?$/.test(value)) return NaN;
+  const [whole, fraction = ""] = value.replace("-", "").split(/[.,]/);
+  const cents = (Number(whole) * 100 + Number(fraction.padEnd(2, "0"))) * (value.startsWith("-") ? -1 : 1);
+  return cents >= -2147483648 && cents <= 2147483647 ? cents : NaN;
+}
 export const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
+export const localDay = (day = new Date()) => `${monthKey(day)}-${String(day.getDate()).padStart(2, "0")}`;
+
 export type BudgetRow = { id: number; category_id: number; category_name: string; color: string; limit_cents: number; spent_cents: number };
-export type ReportRow = { month: string; income_cents: number; expense_cents: number; net_worth_cents: number };
+export type ReportRow = { month: string; income_cents: number; expense_cents: number; accounts_balance_cents?: number; net_worth_cents: number };
 export const fin2 = {
   budgets: (month: string) => req<BudgetRow[]>(`/finance/budgets?month=${month}`),
   setBudget: (category_id: number, limit_cents: number) =>
@@ -156,11 +184,12 @@ export const fin4 = {
 };
 
 export type TTStatus = { configured: boolean; connected: boolean };
-export type TTTask = { id: string; project_id: string; project_name: string; project_color: string; title: string; priority: number; due_date: string | null; overdue: boolean };
-export type TTTasks = { today: string; week_end: string; projects: { id: string; name: string }[]; tasks: TTTask[] };
+export type TTTask = { revision?:string; id: string; project_id: string; project_name: string; project_color: string; title: string; priority: number; due_date: string | null; overdue: boolean };
+export type TTTasks = { completed?:TTTask[]; synced_at?:string; warnings?:string[]; today: string; week_end: string; projects: { id: string; name: string }[]; tasks: TTTask[] };
 export const tt = {
+  rename:(t:TTTask,title:string)=>req<{ok:boolean}>(`/ticktick/tasks/${encodeURIComponent(t.project_id)}/${encodeURIComponent(t.id)}`,{method:"PATCH",body:JSON.stringify({title,revision:t.revision})}),
   status: () => req<TTStatus>("/ticktick/status"),
-  tasks: () => req<TTTasks>("/ticktick/tasks"),
+  tasks: () => req<TTTasks>("/ticktick/tasks",{cache:"no-store"}),
   createTask: (title: string, project_id: string | null, due: string | null, priority: number) =>
     req<{ ok: boolean }>("/ticktick/tasks", { method: "POST", body: JSON.stringify({ title, project_id, due, priority }) }),
   complete: (project_id: string, id: string) =>

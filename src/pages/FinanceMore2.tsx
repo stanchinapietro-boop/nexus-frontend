@@ -1,25 +1,23 @@
+import { useFinanceData as useLoad } from "../useFinanceData";
 import { useEffect, useState } from "react";
 import { Minus, Pause, Play, Plus, Trash2 } from "lucide-react";
-import { fin, fin3, eur, toCents, type Account, type Category, type Goal, type Rec } from "../api";
+import { fin, fin3, eur, toCents, localDay, type Account, type Category, type Goal, type Rec } from "../api";
 
 const input = "w-full rounded-lg border border-line bg-ink px-3 py-2 text-base";
 const card = "rounded-2xl border border-line bg-panel p-5";
 const FREQ: Record<string, string> = { weekly: "ogni settimana", monthly: "ogni mese", yearly: "ogni anno" };
 
-function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
-  const [data, setData] = useState<T | null>(null);
-  useEffect(() => { fn().then(setData).catch(() => setData(null)); }, deps); // eslint-disable-line
-  return data;
-}
+
 
 function GoalCard({ g, bump }: { g: Goal; bump: () => void }) {
   const [amt, setAmt] = useState("");
+  const [err, setErr] = useState("");
   const pct = Math.min(100, (g.saved_cents / g.target_cents) * 100);
   const days = g.deadline ? Math.ceil((new Date(g.deadline).getTime() - Date.now()) / 86400000) : null;
   const move = (sign: number) => {
     const c = toCents(amt);
-    if (!c || c <= 0) return;
-    fin3.goalAdd(g.id, sign * c).then(() => { setAmt(""); bump(); });
+    if (!c || c <= 0) return setErr("Inserisci un importo valido.");
+    fin3.goalAdd(g.id, sign * c).then(() => { setAmt(""); setErr(""); bump(); }).catch((e: Error) => setErr(e.message));
   };
   return (
     <div className={card}>
@@ -27,9 +25,10 @@ function GoalCard({ g, bump }: { g: Goal; bump: () => void }) {
         <div className="font-medium">{g.name}</div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-accent">{Math.round(pct)}%</span>
-          <button aria-label="Elimina obiettivo" className="text-mute hover:text-red-400" onClick={() => fin3.delGoal(g.id).then(bump)}><Trash2 size={16} /></button>
+          <button aria-label="Elimina obiettivo" className="text-mute hover:text-red-400" onClick={() => fin3.delGoal(g.id).then(bump).catch((e: Error) => setErr(e.message))}><Trash2 size={16} /></button>
         </div>
       </div>
+      {err && <p role="alert" className="text-red-400">{err}</p>}
       <div className="mt-1 text-sm text-mute">{eur(g.saved_cents)} di {eur(g.target_cents)}</div>
       <div className="mt-2 h-2 rounded bg-raised"><div className="h-2 rounded bg-accent" style={{ width: `${pct}%` }} /></div>
       <div className="mt-3 flex items-center gap-2">
@@ -46,7 +45,7 @@ function GoalCard({ g, bump }: { g: Goal; bump: () => void }) {
 }
 
 export function Obiettivi({ rev, bump }: { rev: number; bump: () => void }) {
-  const goals = useLoad<Goal[]>(() => fin3.goals(), [rev]);
+  const { data: goals, error: loadError } = useLoad<Goal[]>(() => fin3.goals(), [rev]);
   const [name, setName] = useState(""); const [target, setTarget] = useState(""); const [dl, setDl] = useState(""); const [err, setErr] = useState("");
   const saved = (goals ?? []).reduce((a, g) => a + g.saved_cents, 0);
   const total = (goals ?? []).reduce((a, g) => a + g.target_cents, 0);
@@ -54,9 +53,11 @@ export function Obiettivi({ rev, bump }: { rev: number; bump: () => void }) {
   async function add() {
     const c = toCents(target);
     if (!name.trim() || !c || c <= 0) return setErr("Inserisci un nome e un importo valido.");
-    await fin3.addGoal(name.trim(), c, dl || null);
-    setName(""); setTarget(""); setDl(""); setErr(""); bump();
+    try { await fin3.addGoal(name.trim(), c, dl || null); setName(""); setTarget(""); setDl(""); setErr(""); bump(); }
+    catch (e) { setErr((e as Error).message); }
   }
+  if (loadError) return <p role="alert">Obiettivi: dati non disponibili. {loadError}</p>;
+  if (!goals) return <p role="status">Caricamento…</p>;
   return (
     <div className="mx-auto grid max-w-2xl gap-3">
       <div className={card}>
@@ -82,14 +83,14 @@ export function Obiettivi({ rev, bump }: { rev: number; bump: () => void }) {
 }
 
 export function Ricorrenti({ rev, bump }: { rev: number; bump: () => void }) {
-  const recs = useLoad<Rec[]>(() => fin3.recurring(), [rev]);
+  const { data: recs, error: loadError } = useLoad<Rec[]>(() => fin3.recurring(), [rev]);
   const [accs, setAccs] = useState<Account[]>([]); const [cats, setCats] = useState<Category[]>([]);
   const [type, setType] = useState<"expense" | "income">("expense");
   const [note, setNote] = useState(""); const [amount, setAmount] = useState(""); const [acc, setAcc] = useState(""); const [cat, setCat] = useState("");
-  const [freq, setFreq] = useState("monthly"); const [start, setStart] = useState(new Date().toISOString().slice(0, 10)); const [err, setErr] = useState("");
+  const [freq, setFreq] = useState("monthly"); const [start, setStart] = useState(localDay()); const [err, setErr] = useState("");
   useEffect(() => {
-    fin.accounts().then((a) => { setAccs(a); if (a[0]) setAcc(String(a[0].id)); });
-    fin.categories().then(setCats);
+    fin.accounts().then((a) => { setAccs(a); if (a[0]) setAcc(String(a[0].id)); }).catch((e: Error) => setErr(e.message));
+    fin.categories().then(setCats).catch((e: Error) => setErr(e.message));
   }, []);
   async function add() {
     const c = toCents(amount);
@@ -100,9 +101,11 @@ export function Ricorrenti({ rev, bump }: { rev: number; bump: () => void }) {
       setNote(""); setAmount(""); setErr(""); bump();
     } catch { setErr("Salvataggio non riuscito."); }
   }
+  if (loadError) return <p role="alert">Ricorrenze: dati non disponibili. {loadError}</p>;
+  if (!recs) return <p role="status">Caricamento…</p>;
   return (
     <div className="mx-auto grid max-w-2xl gap-3">
-      <p className="text-sm text-mute">Questi movimenti vengono registrati da soli alla data prevista, anche per le date già passate.</p>
+      <p className="text-sm text-mute">All’apertura di Finance vengono registrate le scadenze maturate delle ricorrenze attive.</p>
       {recs && recs.length === 0 && <p className="text-sm text-mute">Nessun movimento ricorrente.</p>}
       {(recs ?? []).map((r) => (
         <div key={r.id} className={`${card} flex items-center gap-3 ${r.active ? "" : "opacity-50"}`}>
@@ -111,8 +114,8 @@ export function Ricorrenti({ rev, bump }: { rev: number; bump: () => void }) {
             <div className="text-xs text-mute">{FREQ[r.freq]} · prossimo {new Date(r.next_day).toLocaleDateString("it-IT")} · {r.account_name}</div>
           </div>
           <div className={r.type === "income" ? "text-green-400" : "text-red-400"}>{r.type === "income" ? "+ " : "− "}{eur(r.amount_cents)}</div>
-          <button aria-label={r.active ? "Metti in pausa" : "Riattiva"} onClick={() => fin3.toggleRec(r.id).then(bump)}>{r.active ? <Pause size={18} /> : <Play size={18} />}</button>
-          <button aria-label="Elimina ricorrente" className="text-mute hover:text-red-400" onClick={() => fin3.delRec(r.id).then(bump)}><Trash2 size={16} /></button>
+          <button aria-label={r.active ? "Metti in pausa" : "Riattiva"} onClick={() => fin3.toggleRec(r.id).then(bump).catch((e: Error) => setErr(e.message))}>{r.active ? <Pause size={18} /> : <Play size={18} />}</button>
+          <button aria-label="Elimina ricorrente" className="text-mute hover:text-red-400" onClick={() => fin3.delRec(r.id).then(bump).catch((e: Error) => setErr(e.message))}><Trash2 size={16} /></button>
         </div>
       ))}
       <div className={card}>

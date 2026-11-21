@@ -2,12 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; --accent: 255 106 26; }
+:root {
+  color-scheme: dark;
+  --accent: 255 106 26;
+  --nexus-ink: 15 15 16; --nexus-panel: 24 24 26; --nexus-raised: 34 34 37;
+  --nexus-line: 46 46 50; --nexus-mute: 149 149 158; --nexus-text: 236 236 238;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --nexus-ink: 246 246 248; --nexus-panel: 255 255 255; --nexus-raised: 234 236 239;
+  --nexus-line: 208 211 216; --nexus-mute: 82 86 95; --nexus-text: 28 30 36;
+}
+:root[data-theme="light"] :is(.text-white, .hover\:text-white:hover, dialog) { color: rgb(var(--nexus-text)); }
+:root[data-theme="light"] .text-accent { color: color-mix(in srgb, rgb(var(--accent)) 65%, black); }
+:root[data-theme="light"] :is(.text-red-300, .text-red-400) { color: #a52a29; }
+:root[data-theme="light"] :is(.text-amber-300, .text-amber-400) { color: #875808; }
+
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: #0f0f10;
-  color: #ececee;
+  background: rgb(var(--nexus-ink));
+  color: rgb(var(--nexus-text));
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
@@ -28,7 +43,7 @@ button, a, [role="button"] { touch-action: manipulation; }
 
 /* Sfondo con un leggero bagliore del colore principale */
 body {
-  background: radial-gradient(900px 420px at 75% -8%, rgb(var(--accent) / 0.07), transparent 70%), #0f0f10;
+  background: radial-gradient(900px 420px at 75% -8%, rgb(var(--accent) / 0.07), transparent 70%), rgb(var(--nexus-ink));
   background-attachment: fixed;
 }
 

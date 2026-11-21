@@ -2,12 +2,7 @@
 
 App React (Vite) pensata per Vercel.
 
-IMPORTANTE: prima del deploy apri `vercel.json` e sostituisci
-`INSERISCI-QUI-L-INDIRIZZO-DEL-BACKEND.vercel.app` con l'indirizzo reale del progetto backend.
-Il frontend inoltra le chiamate `/api/...` al backend: così il browser vede un solo indirizzo
-e il cookie di accesso funziona anche su iPhone.
-
-Nel codice non c'è nessuna password né chiave: l'accesso è controllato dal server.
+La configurazione inclusa collega il frontend del branch supabase-preview al backend Preview dello stesso branch. Le richieste /api passano dallo stesso dominio del frontend. Per pubblicare su Production occorre impostare il backend dell’ambiente corrispondente e verificare la sessione sul dominio pubblico.
 
 ## Prova in locale
 ```

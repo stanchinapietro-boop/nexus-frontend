@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {usePrefs,setPrefs} from "../prefs";
+import { useRef, useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Check, CalendarDays, CalendarRange, Flag, Inbox, LayoutGrid, Plus, RefreshCw, Sunrise, X } from "lucide-react";
 import { tt, type TTStatus, type TTTask, type TTTasks } from "../api";
@@ -7,20 +8,29 @@ const input = "w-full rounded-lg border border-line bg-ink px-3 py-2 text-base";
 const card = "rounded-2xl border border-line bg-panel p-5";
 const PRIO: Record<number, [string, string]> = { 5: ["Alta", "#ef4444"], 3: ["Media", "#f59e0b"], 1: ["Bassa", "#0ea5e9"] };
 
-function useTasks() {
+export function useTasks() {
   const [status, setStatus] = useState<TTStatus | null>(null);
   const [data, setData] = useState<TTTasks | null>(null);
   const [error, setError] = useState("");
-  const load = useCallback(async () => {
-    try {
-      const s = await tt.status();
+  const sequence=useRef(0);
+  const load=useCallback(async()=>{
+    const id=++sequence.current;
+    try{
+      const s=await tt.status();
+      if(id!==sequence.current)return;
       setStatus(s);
-      if (s.connected) { setData(await tt.tasks()); setError(""); }
-    } catch (e) {
-      setError(e instanceof Error && e.message.includes("401") ? "L'autorizzazione è scaduta: ricollega TickTick." : "Impossibile leggere i task. Il backend è acceso?");
-    }
-  }, []);
-  useEffect(() => { load(); }, [load]);
+      const fresh=s.connected?await tt.tasks():null;
+      if(id===sequence.current){setData(fresh);setError("");}
+    }catch(e){if(id===sequence.current)setError(e instanceof Error?e.message:"Sincronizzazione TickTick interrotta");}
+  },[]);
+  useEffect(()=>{
+    void load();
+    const refresh=()=>{if(!document.hidden)void load();};
+    const timer=setInterval(refresh,60000);
+    window.addEventListener("online",refresh);window.addEventListener("nexus:ticktick-sync",refresh);
+    document.addEventListener("visibilitychange",refresh);
+    return ()=>{sequence.current++;clearInterval(timer);window.removeEventListener("online",refresh);window.removeEventListener("nexus:ticktick-sync",refresh);document.removeEventListener("visibilitychange",refresh);};
+  },[load]);
   return { status, data, error, load, setData };
 }
 
@@ -38,6 +48,7 @@ function dueLabel(t: TTTask): { text: string; color: string } | null {
 
 function Row({ t, onDone }: { t: TTTask; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [problem,setProblem]=useState("");
   const color = PRIO[t.priority]?.[1] ?? "#8d8d94";
   const lbl = dueLabel(t);
   return (
@@ -51,6 +62,8 @@ function Row({ t, onDone }: { t: TTTask; onDone: () => void }) {
       <span className="hidden items-center gap-1.5 rounded-full bg-white/[0.05] px-2 py-0.5 text-xs text-mute sm:flex">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.project_color }} />{t.project_name}
       </span>
+      {t.revision&&<button disabled={busy} className="text-xs text-accent" onClick={async()=>{const title=window.prompt("Nuovo titolo su TickTick",t.title)?.trim();if(!title||title===t.title)return;setBusy(true);setProblem("");try{await tt.rename(t,title);window.dispatchEvent(new Event("nexus:ticktick-sync"));}catch(e){setProblem((e as Error).message);}finally{setBusy(false);}}}>Rinomina</button>}
+      {problem&&<span role="alert">{problem}</span>}
       {lbl && <span className="shrink-0 text-xs font-medium" style={{ color: lbl.color }}>{lbl.text}</span>}
     </div>
   );
@@ -74,13 +87,13 @@ function Connect({ status }: { status: TTStatus | null }) {
   );
 }
 
-export function TodayTasks() {
-  const { status, data, error, load, setData } = useTasks();
+export function TodayTasks({ tasks }: { tasks: ReturnType<typeof useTasks> }) {
+  const { status, data, error, load, setData } = tasks;
   if (!status && !error) return null;
   const list = (data?.tasks ?? []).filter((t) => t.overdue || t.due_date === data?.today);
   const late = list.filter((t) => t.overdue).length;
   return (
-    <div className={`${card} mt-6`}>
+    <div className={card}>
       <div className="mb-3 flex items-center justify-between">
         <div className="font-medium">Task di oggi</div>
         <Link to="/tasks" className="text-sm text-accent">Tutti</Link>
@@ -225,12 +238,9 @@ const SECTION = (t: TTTask, today: string): { k: string; label: string } => {
 export default function Tasks() {
   const { status, data, error, load, setData } = useTasks();
   const [params] = useSearchParams();
-  const [sel, setSelState] = useState<string>(() => { try { return localStorage.getItem("nexus.tasks.sel") || "today"; } catch { return "today"; } });
-  const [urgent, setUrgentState] = useState<number>(() => {
-    try { const r = localStorage.getItem("nexus.tasks.urgent"); return r === null ? 1 : Number(r) || 0; } catch { return 1; }
-  });
-  const setSel = (v: string) => { setSelState(v); try { localStorage.setItem("nexus.tasks.sel", v); } catch { /* ignora */ } };
-  const setUrgent = (n: number) => { setUrgentState(n); try { localStorage.setItem("nexus.tasks.urgent", String(n)); } catch { /* ignora */ } };
+  const {tasksView:sel,tasksUrgency:urgent}=usePrefs();
+  const setSel=(value:string)=>setPrefs({tasksView:value});
+  const setUrgent=(value:number)=>setPrefs({tasksUrgency:value});
   const [title, setTitle] = useState(""); const [due, setDue] = useState(""); const [prio, setPrio] = useState(0);
   const [msg, setMsg] = useState("");
 
@@ -270,7 +280,7 @@ export default function Tasks() {
       {count !== undefined && count > 0 && <span className="text-xs tabular-nums text-mute">{count}</span>}
     </button>
   );
-  const heading: Record<string, string> = { all: "Tutti", today: "Oggi", tomorrow: "Domani", week: "Prossimi 7 giorni", matrix: "Matrice di Eisenhower" };
+  const heading: Record<string, string> = { all: "Tutti", today: "Oggi", tomorrow: "Domani", week: "Prossimi 7 giorni", matrix: "Matrice di Eisenhower NEXUS" };
   const title2 = heading[sel] ?? data?.projects.find((p) => "p:" + p.id === sel)?.name ?? "Lista";
 
   return (
@@ -281,6 +291,10 @@ export default function Tasks() {
       </div>
       {params.get("ticktick") === "ok" && <p className="mb-3 text-sm text-green-400">TickTick collegato.</p>}
       {params.get("ticktick") === "errore" && <p className="mb-3 text-sm text-red-400">Collegamento non riuscito. Riprova.</p>}
+      {data?.synced_at&&<p className="text-sm text-mute">Ultima lettura TickTick · {new Date(data.synced_at).toLocaleTimeString("it-IT")} · {data.tasks.length} attività aperte</p>}
+      {data?.completed&&<details className="my-2"><summary>Completate negli ultimi 30 giorni ({data.completed.length})</summary>{data.completed.map(t=><p key={t.project_id+t.id}>{t.project_name} · {t.title}</p>)}</details>}
+      {data?.warnings?.map(w=><p role="status" key={w}>{w}</p>)}
+      {error&&status?.connected&&<a className="text-accent" href="/api/ticktick/login">Ricollega TickTick</a>}
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
       {status && !status.connected && <Connect status={status} />}
 
@@ -304,7 +318,7 @@ export default function Tasks() {
               </div>
               <div className="flex items-center gap-2">
                 {sel === "matrix" && (
-                  <label className="flex items-center gap-2 text-sm text-mute"><span className="hidden sm:inline">Urgente se scade</span>
+                  <label className="flex items-center gap-2 text-sm text-mute"><span className="hidden sm:inline">Regola NEXUS · importante da priorità media, urgente se scade</span>
                     <select className="rounded-lg border border-line bg-panel px-2 py-1.5 text-white" value={urgent} onChange={(e) => setUrgent(Number(e.target.value))}>
                       <option value={0}>oggi</option><option value={1}>entro domani</option><option value={2}>entro 2 giorni</option>
                       <option value={3}>entro 3 giorni</option><option value={7}>entro 7 giorni</option>

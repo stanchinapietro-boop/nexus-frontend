@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const BASE = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_BASE ?? "/api");
 type Status = { setup_required: boolean; setup_available: boolean; authenticated: boolean };
 
 async function call<T>(path: string, body?: unknown): Promise<T> {

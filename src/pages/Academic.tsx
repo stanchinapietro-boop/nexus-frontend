@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { BookOpen, Check, ClipboardList, Pencil, Plus, Trash2, GraduationCap, Clock3, CalendarDays, LayoutDashboard, Search, X, Award, Target, BarChart3 } from "lucide-react";
 import { academic, type Course, type StudyTask } from "../api";
@@ -25,7 +26,11 @@ export default function Academic() {
   const [date, setDate] = useState("");
   const [courseId, setCourseId] = useState("");
   const [error, setError] = useState("");
-  const [section, setSection] = useState<Section>("overview");
+  const [params, setParams] = useSearchParams();
+  const selected = params.get("sezione");
+  const sections: Section[] = ["overview", "myday", "timeline", "matrix", "timetable", "agenda", "activities", "exams", "courses", "grades", "study", "analytics", "notes", "flashcards"];
+  const section = sections.find(item => item === selected) ?? "overview";
+  const setSection = (next: Section) => setParams({ sezione: next });
   const [query, setQuery] = useState("");
   const [showDone, setShowDone] = useState(false);
   const refresh = async () => { const [c, t] = await Promise.all([academic.courses(), academic.tasks()]); setCourses(c); setTasks(t); };
