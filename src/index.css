@@ -57,3 +57,6 @@ body {
   .tk-side { flex-direction: column; overflow: visible; margin: 0; padding: 0; gap: .125rem; position: sticky; top: 1rem; align-self: start; }
   .tk-group { display: block; }
 }
+
+#root > div > aside { background-color: rgb(var(--nexus-sidebar, var(--nexus-panel))); }
+.text-white { color: rgb(var(--nexus-text)); }

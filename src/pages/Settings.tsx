@@ -1,4 +1,5 @@
 import ConfigurationFiles from "../ConfigurationFiles";
+import ThemeLibrary from "../ThemeLibrary";
 import WorkspaceSettings from "../WorkspaceSettings";
 import { isTheme, themes } from "../themes";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -88,7 +89,7 @@ export default function SettingsPage() {
     <Panel title="Aspetto e navigazione">
       <label className="block">Tema<select aria-label="Tema" className={field} value={prefs.theme} onChange={e => {
         const id = e.target.value;
-        if (isTheme(id)) setPrefs({ theme: id, accent: themes[id][1] });
+        if (isTheme(id)) setPrefs({ theme: id, accent: themes[id][1], colors: {} });
       }}>
         {Object.entries(themes).map(([id, [label]]) => <option key={id} value={id}>{label}</option>)}</select></label>
       <div className="grid gap-4 sm:grid-cols-2"><label className="flex items-center justify-between gap-3">Colore principale<input aria-label="Colore principale" type="color" value={prefs.accent}
@@ -97,6 +98,7 @@ export default function SettingsPage() {
           <option value="standard">Standard</option><option value="compact">Compatta</option></select></label></div>
       <div><Link className={button} to="/menu">Gestisci i moduli e i preferiti</Link></div>
     </Panel>
+    <Panel title="Editor dei temi"><ThemeLibrary/></Panel>
     <Panel title="Dashboard"><DashboardControls /></Panel>
     <Panel title="Configurazione personale"><ConfigurationFiles/></Panel>
     <Panel title="Integrazioni">

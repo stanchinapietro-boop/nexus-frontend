@@ -1,4 +1,4 @@
-import { applyTheme, isTheme, themes, type ThemeId } from "./themes";
+import { applyTheme, isTheme, validColors, validSavedTheme, type Colors, type SavedTheme, themes, type ThemeId } from "./themes";
 import { useSyncExternalStore } from "react";
 
 export const widgetNames = {
@@ -21,6 +21,8 @@ export const defaultWidgets = Object.keys(widgetNames) as WidgetId[];
 type FlatPrefs = {
   tasksView:string;tasksUrgency:number;
   theme: ThemeId;
+  colors: Colors;
+  savedThemes: SavedTheme[];
   badges: boolean;
   quietFrom: string;
   quietTo: string;
@@ -43,6 +45,7 @@ const KEY = "nexus.prefs";
 export const defaultWide: WidgetId[] = ["history"];
 const defaults: FlatPrefs = {
   tasksView:"all",tasksUrgency:1,
+  colors: {}, savedThemes: [],
   theme: "dark", badges: true, quietFrom: "", quietTo: "",
   accent: themes.dark[1], hiddenTabs: [], hiddenWidgets: [],
   compactSidebar: false, favoritePaths: [], navOrder: [], recentCommands: [],
@@ -70,6 +73,8 @@ function decodeFlat(value: unknown): FlatPrefs {
   return {
     tasksView: typeof data.tasksView==="string"?data.tasksView:"all",
     tasksUrgency: [0,1,2,3,7].includes(Number(data.tasksUrgency))?Number(data.tasksUrgency):1,
+    colors: validColors(data.colors) ? data.colors : {},
+    savedThemes: Array.isArray(data.savedThemes) ? data.savedThemes.filter(validSavedTheme).slice(0, 24) : [],
     theme: isTheme(data.theme) ? data.theme : "dark",
     badges: data.badges !== false,
     quietFrom: validTime(data.quietFrom) ? data.quietFrom : "",
@@ -87,7 +92,7 @@ function decodeFlat(value: unknown): FlatPrefs {
     dateFormat: data.dateFormat === "numeric" ? "numeric" : "long",
   };
 }
-const profileKeys = ["theme", "accent", "compactSidebar", "favoritePaths", "navOrder", "hiddenTabs",
+const profileKeys = ["theme", "accent", "colors", "compactSidebar", "favoritePaths", "navOrder", "hiddenTabs",
   "dashboardOrder", "dashboardHidden", "dashboardWide", "density"] as const;
 type Appearance = Pick<FlatPrefs, typeof profileKeys[number]>;
 export type Workspace = { id: string; name: string; appearance: Appearance };
@@ -126,7 +131,7 @@ let persisted = true;
 const listeners = new Set<() => void>();
 function change(next: Prefs) {
   current = next;
-  applyTheme(next.theme, next.accent);
+  applyTheme(next.theme, next.accent, next.colors);
   for (const listener of listeners) listener();
 }
 if (typeof window !== "undefined") {
@@ -184,4 +189,4 @@ export function displayDay(date: Date, prefs: Prefs) {
   const field = (type: "year" | "month" | "day") => parts.find(part => part.type === type)?.value;
   return `${field("year")}-${field("month")}-${field("day")}`;
 }
-if (typeof document !== "undefined") applyTheme(current.theme, current.accent);
+if (typeof document !== "undefined") applyTheme(current.theme, current.accent, current.colors);

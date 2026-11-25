@@ -18,6 +18,14 @@ export function readConfiguration(input: string): Prefs {
   if (input.length > 128000) throw fail();
   const data = JSON.parse(input);
   if (data?.format !== "nexus.configuration.v1") throw fail();
+  // Early v1 exports predate editable color tokens and the theme library.
+  if (data.preferences && typeof data.preferences === "object") {
+    data.preferences.colors ??= {};
+    data.preferences.savedThemes ??= [];
+    for (const row of data.preferences.profiles ?? []) {
+      if (row?.appearance) row.appearance.colors ??= {};
+    }
+  }
   const prefs = decodePreferences(data.preferences);
   if (!sameValue(prefs, data.preferences)) throw fail();
   return prefs;
