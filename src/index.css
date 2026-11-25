@@ -4,8 +4,8 @@
 
 :root {
   color-scheme: dark;
-  --accent: 255 106 26;
-  --nexus-ink: 15 15 16; --nexus-panel: 24 24 26; --nexus-raised: 34 34 37;
+  --accent: 100 216 230;
+  --nexus-ink: 9 11 14; --nexus-panel: 16 19 24; --nexus-raised: 23 27 33;
   --nexus-line: 46 46 50; --nexus-mute: 149 149 158; --nexus-text: 236 236 238;
 }
 :root[data-theme="light"] {

@@ -1,3 +1,6 @@
+import ConfigurationFiles from "../ConfigurationFiles";
+import WorkspaceSettings from "../WorkspaceSettings";
+import { isTheme, themes } from "../themes";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api, tt, type TTStatus } from "../api";
@@ -81,9 +84,13 @@ export default function SettingsPage() {
       {zoneError && <p role="alert" className="text-amber-300">{zoneError}</p>}
       <p className="text-sm text-mute">{now.toLocaleDateString("it-IT", getDateOptions(prefs))} · {now.toLocaleTimeString("it-IT", getClockOptions(prefs))} · {prefs.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
     </Panel>
+    <Panel title="Workspace"><WorkspaceSettings key={prefs.activeProfile}/></Panel>
     <Panel title="Aspetto e navigazione">
-      <label className="block">Tema<select aria-label="Tema" className={field} value={prefs.theme} onChange={e=>setPrefs({ theme: e.target.value === "light" ? "light" : "dark" })}>
-        <option value="dark">Scuro</option><option value="light">Chiaro</option></select></label>
+      <label className="block">Tema<select aria-label="Tema" className={field} value={prefs.theme} onChange={e => {
+        const id = e.target.value;
+        if (isTheme(id)) setPrefs({ theme: id, accent: themes[id][1] });
+      }}>
+        {Object.entries(themes).map(([id, [label]]) => <option key={id} value={id}>{label}</option>)}</select></label>
       <div className="grid gap-4 sm:grid-cols-2"><label className="flex items-center justify-between gap-3">Colore principale<input aria-label="Colore principale" type="color" value={prefs.accent}
         className="h-10 w-14" onChange={e => setPrefs({ accent: e.target.value })} /></label>
         <label className="space-y-1"><span>Spaziatura dashboard</span><select className={field} value={prefs.density} onChange={e => setPrefs({ density: e.target.value === "compact" ? "compact" : "standard" })}>
@@ -91,6 +98,7 @@ export default function SettingsPage() {
       <div><Link className={button} to="/menu">Gestisci i moduli e i preferiti</Link></div>
     </Panel>
     <Panel title="Dashboard"><DashboardControls /></Panel>
+    <Panel title="Configurazione personale"><ConfigurationFiles/></Panel>
     <Panel title="Integrazioni">
       <p>TickTick · {tickError ? "Stato non disponibile" : connection ? connection.connected ? "Collegato" : connection.configured ? "Da collegare" : "Da configurare" : "Verifica in corso…"}</p>
       <Link className={button} to="/tasks">Apri TickTick in NEXUS</Link>

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { req, tt, type TTTask } from "../api";
+import { useRecordSearch, type Hit } from "../useRecordSearch";
+import { tt, type TTTask } from "../api";
 import { NAV } from "../nav";
 
-type Hit = { id: number | string; group: string; title: string; detail: string; day: string | null; to: string };
-type Matches = { results: Hit[]; unavailable: string[]; per_category: number };
 function normalize(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("it");
 }
@@ -13,11 +12,10 @@ export default function SearchPage() {
   const [params, setParams] = useSearchParams();
   const term = (params.get("q") ?? "").slice(0, 100);
   const q = term.trim();
-  const [response, setResponse] = useState<Matches | null>(null);
-  const [error, setError] = useState(false);
   const [tasks, setTasks] = useState<TTTask[]>([]);
   const [tickError, setTickError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const {response, error} = useRecordSearch(q, attempt);
   useEffect(() => {
     let active = true;
     setTickError(false);
@@ -26,18 +24,6 @@ export default function SearchPage() {
     }).catch(() => { if (active) { setTasks([]); setTickError(true); } });
     return () => { active = false; };
   }, [attempt]);
-  useEffect(() => {
-    setResponse(null);
-    setError(false);
-    if (q.length < 2) return;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      req<Matches>("/search?q=" + encodeURIComponent(q), { signal: controller.signal })
-        .then(data => { if (!controller.signal.aborted) setResponse(data); })
-        .catch(() => { if (!controller.signal.aborted) setError(true); });
-    }, 180);
-    return () => { window.clearTimeout(timeout); controller.abort(); };
-  }, [q, attempt]);
   const words = normalize(q).split(/\s+/);
   const matches = (value: string) => words.every(word => normalize(value).includes(word));
   const modules: Hit[] = NAV.filter(item => item.path !== "/search" && matches(item.label)).map(item => ({

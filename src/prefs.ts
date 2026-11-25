@@ -1,3 +1,4 @@
+import { applyTheme, isTheme, themes, type ThemeId } from "./themes";
 import { useSyncExternalStore } from "react";
 
 export const widgetNames = {
@@ -17,9 +18,9 @@ export const widgetNames = {
 export type WidgetId = keyof typeof widgetNames;
 export const defaultWidgets = Object.keys(widgetNames) as WidgetId[];
 
-export type Prefs = {
+type FlatPrefs = {
   tasksView:string;tasksUrgency:number;
-  theme: "light" | "dark";
+  theme: ThemeId;
   badges: boolean;
   quietFrom: string;
   quietTo: string;
@@ -40,10 +41,10 @@ export type Prefs = {
 };
 const KEY = "nexus.prefs";
 export const defaultWide: WidgetId[] = ["history"];
-const defaults: Prefs = {
+const defaults: FlatPrefs = {
   tasksView:"all",tasksUrgency:1,
   theme: "dark", badges: true, quietFrom: "", quietTo: "",
-  accent: "#ff6a1a", hiddenTabs: [], hiddenWidgets: [],
+  accent: themes.dark[1], hiddenTabs: [], hiddenWidgets: [],
   compactSidebar: false, favoritePaths: [], navOrder: [], recentCommands: [],
   dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide,
   density: "standard", timeZone: "", clock: "system", dateFormat: "long",
@@ -62,14 +63,14 @@ export function validZone(value: string) {
 function validTime(value: unknown): value is string {
   return typeof value === "string" && /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value);
 }
-function decode(value: unknown): Prefs {
+function decodeFlat(value: unknown): FlatPrefs {
   if (!value || typeof value !== "object" || Array.isArray(value)) return defaults;
   const data = value as Record<string, unknown>;
   const order = widgetIds(data.dashboardOrder);
   return {
     tasksView: typeof data.tasksView==="string"?data.tasksView:"all",
     tasksUrgency: [0,1,2,3,7].includes(Number(data.tasksUrgency))?Number(data.tasksUrgency):1,
-    theme: data.theme === "light" ? "light" : "dark",
+    theme: isTheme(data.theme) ? data.theme : "dark",
     badges: data.badges !== false,
     quietFrom: validTime(data.quietFrom) ? data.quietFrom : "",
     quietTo: validTime(data.quietTo) ? data.quietTo : "",
@@ -86,19 +87,46 @@ function decode(value: unknown): Prefs {
     dateFormat: data.dateFormat === "numeric" ? "numeric" : "long",
   };
 }
+const profileKeys = ["theme", "accent", "compactSidebar", "favoritePaths", "navOrder", "hiddenTabs",
+  "dashboardOrder", "dashboardHidden", "dashboardWide", "density"] as const;
+type Appearance = Pick<FlatPrefs, typeof profileKeys[number]>;
+export type Workspace = { id: string; name: string; appearance: Appearance };
+export type Prefs = FlatPrefs & { activeProfile: string; profiles: Workspace[] };
+export function appearance(prefs: FlatPrefs): Appearance {
+  return Object.fromEntries(profileKeys.map(key => [key, prefs[key]])) as Appearance;
+}
+export const defaultAppearance = appearance(defaults);
+export function decodePreferences(value: unknown): Prefs {
+  const flat = decodeFlat(value);
+  const data = (value ?? {}) as Partial<Prefs>;
+  const profiles: Workspace[] = [];
+  if (Array.isArray(data.profiles)) {
+    for (const profile of data.profiles.slice(0, 24)) {
+      if (!profile || typeof profile.id !== "string" || !/^[a-z0-9-]{1,36}$/.test(profile.id) ||
+          typeof profile.name !== "string" || !profile.name.trim() || profiles.some(row => row.id === profile.id)) continue;
+      profiles.push({ id: profile.id, name: profile.name.trim().slice(0, 60), appearance: appearance(decodeFlat(profile.appearance)) });
+    }
+  }
+  if (!profiles.length) {
+    for (const name of ["Personal", "School", "Projects", "Engineering", "Finance", "Gaming", "Second Brain"]) {
+      profiles.push({ id: name.toLowerCase().replace(" ", "-"), name, appearance: defaultAppearance });
+    }
+  }
+  const activeProfile = profiles.find(row => row.id === data.activeProfile)?.id ?? profiles[0].id;
+  return { ...flat, activeProfile, profiles };
+}
 function readSaved(): Prefs {
-  return decode(JSON.parse(localStorage.getItem(KEY) ?? "null"));
+  return decodePreferences(JSON.parse(localStorage.getItem(KEY) ?? "null"));
 }
 function load() {
-  try { return readSaved(); } catch { return defaults; }
+  try { return readSaved(); } catch { return decodePreferences(null); }
 }
 let current = load();
 let persisted = true;
 const listeners = new Set<() => void>();
 function change(next: Prefs) {
   current = next;
-  applyAccent(next.accent);
-  document.documentElement.dataset.theme = next.theme;
+  applyTheme(next.theme, next.accent);
   for (const listener of listeners) listener();
 }
 if (typeof window !== "undefined") {
@@ -109,29 +137,25 @@ if (typeof window !== "undefined") {
     }
   });
 }
-export function applyAccent(hex: string) {
-  const n = parseInt(hex.slice(1), 16);
-  if (typeof document !== "undefined")
-    document.documentElement.style.setProperty("--accent", `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`);
-}
 export function setPrefs(update: Partial<Prefs>) {
   let base = current;
   if (persisted) {
     try { base = readSaved(); } catch { /* Browser storage is unavailable. */ }
   }
-  const next = decode({ ...base, ...update });
+  const next = decodePreferences({ ...base, ...update });
   try { localStorage.setItem(KEY, JSON.stringify(next)); persisted = true; }
   catch { persisted = false; }
   change(next);
   window.dispatchEvent(new CustomEvent("nexus:save-prefs",{detail:update}));
 }
 export function applyCloudPrefs(value:Partial<Prefs>){
- const next=decode({...defaults,...value});
+ const next=decodePreferences({...defaults,...value});
  try {
    const old=localStorage.getItem(KEY);
    if(old && !localStorage.getItem("nexus.prefs.before-cloud"))localStorage.setItem("nexus.prefs.before-cloud",old);
  }catch{/* browser storage is optional */}
- try{localStorage.setItem(KEY,JSON.stringify(next));}catch{}
+ try { localStorage.setItem(KEY, JSON.stringify(next)); persisted = true; }
+ catch { persisted = false; }
  change(next);
 }
 const subscribe = (fn: () => void) => {
@@ -139,7 +163,7 @@ const subscribe = (fn: () => void) => {
   return () => { listeners.delete(fn); };
 };
 export function usePrefs() {
-  return useSyncExternalStore(subscribe, () => current, () => defaults);
+  return useSyncExternalStore(subscribe, () => current, () => current);
 }
 export function prefsSaved() { return persisted; }
 
@@ -160,5 +184,4 @@ export function displayDay(date: Date, prefs: Prefs) {
   const field = (type: "year" | "month" | "day") => parts.find(part => part.type === type)?.value;
   return `${field("year")}-${field("month")}-${field("day")}`;
 }
-applyAccent(current.accent);
-if (typeof document !== "undefined") document.documentElement.dataset.theme = current.theme;
+if (typeof document !== "undefined") applyTheme(current.theme, current.accent);

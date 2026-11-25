@@ -1,6 +1,6 @@
 import CloudSync from "./CloudSync";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { Bell, ListFilter, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import { logout } from "./auth";
 import { BOTTOM, NAV, orderedNav, type NavItem } from "./nav";
@@ -11,6 +11,8 @@ import { NotificationBadge } from "./notifications";
 import Dashboard from "./pages/Dashboard";
 import MenuPage from "./pages/MenuPage";
 import Soon from "./pages/Soon";
+const NeuralMap = lazy(() => import("./pages/NeuralMap"));
+const Training = lazy(() => import("./pages/Training"));
 const Projects = lazy(() => import("./pages/Projects"));
 const Planner = lazy(() => import("./pages/Planner"));
 const Finance = lazy(() => import("./pages/Finance"));
@@ -83,7 +85,11 @@ export default function App() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/ai" element={<Planner assistant />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/health" element={<Training key="health" volley={false}/>} />
+          <Route path="/volley" element={<Training key="volley" volley/>} />
+          <Route path="/goals" element={<Navigate replace to="/life?tab=obiettivi"/>} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/map" element={<NeuralMap />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/inbox" element={<InboxPage />} />

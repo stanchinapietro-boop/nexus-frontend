@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Clock3, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useRecordSearch } from "./useRecordSearch";
 import { NAV } from "./nav";
 import { setPrefs, usePrefs } from "./prefs";
 import { openQuickCapture } from "./QuickCapture";
@@ -30,9 +31,13 @@ export default function CommandPalette({ onDismiss }: { onDismiss: () => void })
   const { recentCommands } = usePrefs();
   const navigate = useNavigate();
   const clean = query.trim();
+  const { response, error } = useRecordSearch(clean);
   const available = commands.filter(cmd => normalize(cmd.label).includes(normalize(clean)));
   const recent = clean ? [] : recentCommands.flatMap(id => available.filter(cmd => cmd.id === id));
   const results: Command[] = [...recent, ...available.filter(cmd => !recent.includes(cmd))];
+  for (const hit of response?.results.slice(0, 12) ?? []) {
+    results.push({ id: "record-" + hit.group + "-" + hit.id, label: hit.title, hint: hit.group, path: hit.to });
+  }
   if (clean) results.push({ id: "global-search", label: "Cerca «" + clean + "» in NEXUS", path: "/search?q=" + encodeURIComponent(clean) });
   const index = Math.min(selected, results.length - 1);
 
@@ -43,7 +48,7 @@ export default function CommandPalette({ onDismiss }: { onDismiss: () => void })
   }, []);
   useEffect(() => { document.getElementById("cmd-" + index)?.scrollIntoView?.({ block: "nearest" }); }, [index]);
   function run(cmd: Command) {
-    if (cmd.id !== "global-search") setPrefs({ recentCommands: [cmd.id, ...recentCommands.filter(id => id !== cmd.id)].slice(0, 5) });
+    if (cmd.id !== "global-search" && !cmd.id.startsWith("record-")) setPrefs({ recentCommands: [cmd.id, ...recentCommands.filter(id => id !== cmd.id)].slice(0, 5) });
     dialog.current?.close();
     onDismiss();
     if (cmd.id === "capture") openQuickCapture();
@@ -56,7 +61,7 @@ export default function CommandPalette({ onDismiss }: { onDismiss: () => void })
       <div className="flex items-center justify-between gap-3"><h2 id="palette-title" className="font-semibold">Comandi rapidi</h2>
         <button type="button" aria-label="Chiudi comandi rapidi" onClick={onDismiss} className="grid h-10 w-10 place-items-center rounded-lg text-mute hover:bg-raised"><X size={18}/></button></div>
       <label className="flex items-center gap-2 rounded-lg border border-line bg-ink px-3 focus-within:border-accent"><Search size={18} className="shrink-0 text-mute" />
-        <input autoFocus role="combobox" aria-label="Cerca un comando o un contenuto" aria-expanded="true" aria-controls="palette-list"
+        <input autoFocus maxLength={100} role="combobox" aria-label="Cerca un comando o un contenuto" aria-expanded="true" aria-controls="palette-list"
           aria-autocomplete="list" aria-activedescendant={"cmd-" + index} placeholder="Cerca un comando o un contenuto…"
           className="min-w-0 flex-1 bg-transparent py-3 outline-none" value={query}
           onChange={e => { setQuery(e.target.value); setSelected(0); }}
@@ -67,6 +72,7 @@ export default function CommandPalette({ onDismiss }: { onDismiss: () => void })
               setSelected((index + (e.key === "ArrowDown" ? 1 : -1) + results.length) % results.length);
             } else if (e.key === "Enter" && results[index]) { e.preventDefault(); run(results[index]); }
           }} /></label>
+      {(error || !!response?.unavailable.length) && <p role="status" className="text-sm text-mute">Ricerca parziale: alcune fonti non sono disponibili.</p>}
       <ul id="palette-list" role="listbox" aria-label="Comandi" className="mt-2 max-h-[min(48dvh,24rem)] overflow-y-auto">
         {results.map((cmd, i) => <li role="option" aria-selected={i === index} id={"cmd-" + i} key={cmd.id}
           onMouseEnter={() => setSelected(i)} onMouseDown={e => e.preventDefault()} onClick={() => run(cmd)}

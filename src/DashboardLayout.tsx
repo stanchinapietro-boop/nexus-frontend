@@ -1,35 +1,55 @@
 import { useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, SlidersHorizontal } from "lucide-react";
 import { defaultWide, defaultWidgets, prefsSaved, setPrefs, usePrefs, widgetNames, type WidgetId } from "./prefs";
 
 const control = "inline-flex min-h-10 items-center justify-center rounded-lg border border-line px-3 text-sm hover:bg-raised disabled:opacity-40";
 
 export function DashboardControls({ available = defaultWidgets }: { available?: WidgetId[] }) {
   const prefs = usePrefs();
-  const order = prefs.dashboardOrder.filter(key => available.includes(key));
-  function move(id: WidgetId, offset: number) {
-    const other = order[order.indexOf(id) + offset];
-    if (!other) return;
-    const next = prefs.dashboardOrder.map(key => key === id ? other : key === other ? id : key);
-    setPrefs({ dashboardOrder: next });
+  const saved = { dashboardOrder: prefs.dashboardOrder, dashboardHidden: prefs.dashboardHidden, dashboardWide: prefs.dashboardWide };
+  type Layout = typeof saved;
+  const [draft, setDraft] = useState<Layout | null>(null);
+  const [baseline, setBaseline] = useState("");
+  const [dragging, setDragging] = useState<WidgetId | null>(null);
+  const layout = draft ?? saved;
+  const order = layout.dashboardOrder.filter(key => available.includes(key));
+  const conflict = draft !== null && baseline !== JSON.stringify(saved);
+  function edit(patch: Partial<Layout>) {
+    if (!draft) setBaseline(JSON.stringify(saved));
+    setDraft({ ...layout, ...patch });
+  }
+  function move(id: WidgetId, target: WidgetId) {
+    if (id === target || !order.includes(id) || !order.includes(target)) return;
+    const reordered = [...order];
+    reordered.splice(order.indexOf(id), 1);
+    reordered.splice(order.indexOf(target), 0, id);
+    let position = 0;
+    edit({ dashboardOrder: layout.dashboardOrder.map(key => available.includes(key) ? reordered[position++] : key) });
   }
   return <div className="space-y-3">
     <p className="text-sm text-mute">Scegli i widget da mostrare. La larghezza estesa si applica agli schermi con due colonne.</p>
     <ul className="divide-y divide-line">{order.map((id, index) => {
-      const visible = !prefs.dashboardHidden.includes(id);
-      const wide = prefs.dashboardWide.includes(id);
+      const visible = !layout.dashboardHidden.includes(id);
+      const wide = layout.dashboardWide.includes(id);
       const name = widgetNames[id];
-      return <li key={id} className="flex flex-wrap items-center gap-2 py-2">
+      return <li key={id} className="flex flex-wrap items-center gap-2 py-2" onDragOver={e => { if (dragging) e.preventDefault(); }}
+        onDrop={e => { e.preventDefault(); if (dragging) move(dragging, id); setDragging(null); }}>
+        <span draggable title={"Trascina " + name} className="cursor-grab p-2 text-mute" onDragStart={e => { e.dataTransfer.setData("text/plain", id); setDragging(id); }} onDragEnd={() => setDragging(null)}><GripVertical size={16}/></span>
         <label className="flex min-h-11 min-w-36 flex-1 items-center gap-2"><input type="checkbox" checked={visible}
-          onChange={() => setPrefs({ dashboardHidden: visible ? [...prefs.dashboardHidden, id] : prefs.dashboardHidden.filter(key => key !== id) })} />{name}</label>
-        <button className={control} aria-pressed={wide} aria-label={"Larghezza estesa per " + name} onClick={() => setPrefs({ dashboardWide: wide ? prefs.dashboardWide.filter(key => key !== id) : [...prefs.dashboardWide, id] })}>
+          onChange={() => edit({ dashboardHidden: visible ? [...layout.dashboardHidden, id] : layout.dashboardHidden.filter(key => key !== id) })} />{name}</label>
+        <button className={control} aria-pressed={wide} aria-label={"Larghezza estesa per " + name} onClick={() => edit({ dashboardWide: wide ? layout.dashboardWide.filter(key => key !== id) : [...layout.dashboardWide, id] })}>
           {wide ? "Estesa" : "Normale"}
         </button>
-        <button className={control} aria-label={"Sposta su " + name} disabled={index === 0} onClick={() => move(id, -1)}><ArrowUp size={16}/></button>
-        <button className={control} aria-label={"Sposta giù " + name} disabled={index === order.length - 1} onClick={() => move(id, 1)}><ArrowDown size={16}/></button>
+        <button className={control} aria-label={"Sposta su " + name} disabled={index === 0} onClick={() => move(id, order[index - 1])}><ArrowUp size={16}/></button>
+        <button className={control} aria-label={"Sposta giù " + name} disabled={index === order.length - 1} onClick={() => move(id, order[index + 1])}><ArrowDown size={16}/></button>
       </li>;
     })}</ul>
-    <button className={control} onClick={() => setPrefs({ dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide, density: "standard" })}>Ripristina layout</button>
+    <button className={control} onClick={() => edit({ dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide })}>Ripristina layout</button>
+    {draft && <div className="flex flex-wrap gap-2">
+      <button className={control} disabled={conflict} onClick={() => { setPrefs(draft); setDraft(null); }}>Applica layout</button>
+      <button className={control} onClick={() => setDraft(null)}>Annulla modifiche</button>
+      {conflict && <p role="alert">Il layout salvato è cambiato. Annulla le modifiche per caricare la nuova versione.</p>}
+    </div>}
     {!prefsSaved() && <p role="alert" className="text-sm text-amber-300">Il browser ha bloccato il salvataggio. Le scelte valgono per questa sessione.</p>}
   </div>;
 }
