@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import MenuPage from "./pages/MenuPage";
 import Soon from "./pages/Soon";
 const NeuralMap = lazy(() => import("./pages/NeuralMap"));
+const Automations = lazy(() => import("./pages/Automations"));
 const Training = lazy(() => import("./pages/Training"));
 const Projects = lazy(() => import("./pages/Projects"));
 const Planner = lazy(() => import("./pages/Planner"));
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="/academic" element={<Academic />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/ai" element={<Planner assistant />} />
+          <Route path="/automations" element={<Automations />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/health" element={<Training key="health" volley={false}/>} />
           <Route path="/volley" element={<Training key="volley" volley/>} />

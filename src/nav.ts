@@ -21,7 +21,7 @@ export const NAV: NavItem[] = [
   { path: "/volley", label: "Volley", icon: Activity, ready: true },
   { path: "/goals", label: "Goals & Habits", icon: Target, ready: true },
   { path: "/analytics", label: "Analytics", icon: BarChart3, ready: false },
-  { path: "/automations", label: "Automations", icon: Workflow, ready: false },
+  { path: "/automations", label: "Automazioni", icon: Workflow, ready: true },
   { path: "/search", label: "Cerca", icon: Search, ready: true },
   { path: "/notifications", label: "Notifiche", icon: Bell, ready: true },
   { path: "/settings", label: "Settings", icon: Settings, ready: true },
