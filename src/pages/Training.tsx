@@ -4,6 +4,7 @@ import { req } from "../api";
 import { lifeApi, type LifeWorkout } from "../lifeResources";
 import { btn, field, panel } from "../planner";
 import { displayDay, usePrefs } from "../prefs";
+import VolleyMetrics from "./VolleyMetrics";
 
 type Draft = Omit<LifeWorkout, "completed" | "id">;
 function empty(day: string, volley: boolean): Draft {
@@ -19,6 +20,16 @@ export default function Training({ volley }: { volley: boolean }) {
   const [editing, setEditing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [metricsAvailable, setMetricsAvailable] = useState(false);
+  const [metricsWorkout, setMetricsWorkout] = useState<number | null>(null);
+  useEffect(() => {
+    if (!volley) return;
+    const controller = new AbortController();
+    req<{metrics: boolean}>("/life/volley/capabilities", { signal: controller.signal })
+      .then(result => setMetricsAvailable(result.metrics))
+      .catch(() => setMetricsAvailable(false));
+    return () => controller.abort();
+  }, [volley]);
   useEffect(() => {
     let live = true;
     setError("");
@@ -71,6 +82,9 @@ export default function Training({ volley }: { volley: boolean }) {
           const result = await req<{completed:boolean}>("/life/workouts/"+row.id+"/complete",{method:"POST"});
           setRows(old => old?.map(item => item.id === row.id ? {...item, completed: result.completed} : item) ?? null);
         })}>{row.completed ? "Completato" : "Segna completato"}</button>
+        {metricsAvailable && <button className={btn} aria-expanded={metricsWorkout === row.id}
+          onClick={() => setMetricsWorkout(current => current === row.id ? null : row.id)}>Metriche tecniche</button>}
+        {metricsAvailable && metricsWorkout === row.id && <VolleyMetrics workoutId={row.id}/>}
       </article>)}
     </section>
   </div>;
