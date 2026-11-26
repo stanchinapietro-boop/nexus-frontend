@@ -35,7 +35,13 @@ export async function proxyPreview(request, host, tokenForRequest, send = fetch)
       const login = incoming.pathname === "/api/ticktick/login" && location.origin === "https://ticktick.com" && location.pathname === "/oauth/authorize";
       const callback = incoming.pathname === "/api/ticktick/callback" && location.origin === incoming.origin && location.pathname === "/tasks";
       if (login || callback) return Response.redirect(location, 303);
-      return failure(502, "Verifica la relazione Trusted Sources tra i due progetti Preview.");
+      const sso = location.origin === "https://vercel.com" && location.pathname === "/sso-api";
+      // Redirects can contain signed URLs. Record only the classification and upstream status.
+      console.warn("NEXUS Preview upstream redirect", { status: response.status, vercelSSO: sso });
+      const result = failure(502, sso ? "Verifica la relazione Trusted Sources tra i due progetti Preview." : "Redirect inatteso dal backend Preview.");
+      result.headers.set("x-nexus-upstream-status", String(response.status));
+      result.headers.set("x-nexus-upstream-redirect", sso ? "vercel-sso" : "unexpected");
+      return result;
     }
     const outgoing = new Headers({ "cache-control": "private, no-store" });
     for (const name of ["content-type", "x-nexus-revision", "retry-after"]) {

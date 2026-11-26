@@ -22,4 +22,14 @@ test("Declines other destinations, cross-origin writes and unexpected redirects"
   const result = await proxyPreview(request,host,async () => "test",async () => Response.redirect("https://example.com/sso"));
   assert.equal(result.status,502);
   assert.equal(result.headers.has("location"),false);
+  assert.equal(result.headers.get("x-nexus-upstream-redirect"),"unexpected");
+});
+test("Identifies a Vercel SSO redirect without forwarding its URL", async () => {
+  const login = "https://vercel.com/sso-api?nonce=test-only";
+  const response = await proxyPreview(request,host,async () => "test",async () => Response.redirect(login,302));
+  assert.equal(response.status,502);
+  assert.equal(response.headers.get("x-nexus-upstream-status"),"302");
+  assert.equal(response.headers.get("x-nexus-upstream-redirect"),"vercel-sso");
+  assert.equal(response.headers.has("location"),false);
+  assert(!JSON.stringify(await response.json()).includes("nonce"));
 });
