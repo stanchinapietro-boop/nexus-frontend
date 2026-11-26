@@ -16,7 +16,12 @@ export const widgetNames = {
   insights: "Avanzamento scolastico",
 } as const;
 export type WidgetId = keyof typeof widgetNames;
+export type WidgetInstance = WidgetId | `${WidgetId}~${number}`;
 export const defaultWidgets = Object.keys(widgetNames) as WidgetId[];
+export const widgetLimit = 128;
+export function widgetType(id: WidgetInstance): WidgetId {
+  return id.split("~")[0] as WidgetId;
+}
 
 type FlatPrefs = {
   tasksView:string;tasksUrgency:number;
@@ -33,9 +38,9 @@ type FlatPrefs = {
   favoritePaths: string[];
   navOrder: string[];
   recentCommands: string[];
-  dashboardOrder: WidgetId[];
-  dashboardHidden: WidgetId[];
-  dashboardWide: WidgetId[];
+  dashboardOrder: WidgetInstance[];
+  dashboardHidden: WidgetInstance[];
+  dashboardWide: WidgetInstance[];
   density: "standard" | "compact";
   timeZone: string;
   clock: "system" | "12" | "24";
@@ -56,8 +61,12 @@ const defaults: FlatPrefs = {
 function strings(value: unknown) {
   return Array.isArray(value) ? [...new Set(value.filter((item): item is string => typeof item === "string"))] : [];
 }
-function widgetIds(value: unknown): WidgetId[] {
-  return strings(value).filter((id): id is WidgetId => defaultWidgets.includes(id as WidgetId));
+function widgetIds(value: unknown): WidgetInstance[] {
+  return strings(value).filter((id): id is WidgetInstance => {
+    const match = /^([a-z]+)(?:~([1-9]\d{0,2}))?$/.exec(id);
+    return !!match && defaultWidgets.includes(match[1] as WidgetId) &&
+      (!match[2] || Number(match[2]) <= widgetLimit);
+  });
 }
 export function validZone(value: string) {
   try { new Intl.DateTimeFormat("it-IT", { timeZone: value }).format(0); return true; }
@@ -69,7 +78,10 @@ function validTime(value: unknown): value is string {
 function decodeFlat(value: unknown): FlatPrefs {
   if (!value || typeof value !== "object" || Array.isArray(value)) return defaults;
   const data = value as Record<string, unknown>;
-  const order = widgetIds(data.dashboardOrder);
+  const requested = widgetIds(data.dashboardOrder);
+  const allowedCopies = new Set(requested.filter(id => id.includes("~")).slice(0, widgetLimit - defaultWidgets.length));
+  const order = requested.filter(id => !id.includes("~") || allowedCopies.has(id));
+  order.push(...defaultWidgets.filter(key => !order.includes(key)));
   return {
     tasksView: typeof data.tasksView==="string"?data.tasksView:"all",
     tasksUrgency: [0,1,2,3,7].includes(Number(data.tasksUrgency))?Number(data.tasksUrgency):1,
@@ -83,9 +95,9 @@ function decodeFlat(value: unknown): FlatPrefs {
     hiddenTabs: strings(data.hiddenTabs), hiddenWidgets: strings(data.hiddenWidgets),
     compactSidebar: data.compactSidebar === true, favoritePaths: strings(data.favoritePaths),
     navOrder: strings(data.navOrder), recentCommands: strings(data.recentCommands),
-    dashboardOrder: [...order, ...defaultWidgets.filter(key => !order.includes(key))],
-    dashboardHidden: widgetIds(data.dashboardHidden),
-    dashboardWide: Array.isArray(data.dashboardWide) ? widgetIds(data.dashboardWide) : defaultWide,
+    dashboardOrder: order,
+    dashboardHidden: widgetIds(data.dashboardHidden).filter(id => order.includes(id)),
+    dashboardWide: Array.isArray(data.dashboardWide) ? widgetIds(data.dashboardWide).filter(id => order.includes(id)) : defaultWide,
     density: data.density === "compact" ? "compact" : "standard",
     timeZone: typeof data.timeZone === "string" && data.timeZone && validZone(data.timeZone) ? data.timeZone : "",
     clock: data.clock === "12" || data.clock === "24" ? data.clock : "system",
