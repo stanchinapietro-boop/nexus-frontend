@@ -1,5 +1,5 @@
-import {useEffect, useState} from "react";
-import {req} from "../api";
+import {useState} from "react";
+import {useAssistantStatus} from "../useAssistantStatus";
 import {btn,panel,field,write,type Item} from "../planner";
 export type AdviceItem=Pick<Item,"key"|"title"|"source"|"due">;
 export function PlanAssistant({day,candidates,time,sources,onAccept}:{day:string;candidates:Item[];time:number|null;sources:AdviceItem[];onAccept:(keys:string[])=>Promise<boolean>}){
@@ -10,16 +10,7 @@ export function PlanAssistant({day,candidates,time,sources,onAccept}:{day:string
  const items=sources.filter(x=>allowed.includes(x.key)).map(({title,source,due})=>({title,source,due}));
  const payload={consent:true,question,day,items};
  const snapshot=JSON.stringify(payload);
- const [provider,setProvider]=useState<"checking"|"configured"|"missing"|"error">("checking");
- const [retry,setRetry]=useState(0);
- useEffect(()=>{
-   const controller=new AbortController();
-   setProvider("checking");
-   req<{configured:boolean}>("/planner/assistant/status",{signal:controller.signal})
-     .then(status=>{if(!controller.signal.aborted)setProvider(status.configured?"configured":"missing");})
-     .catch(()=>{if(!controller.signal.aborted)setProvider("error");});
-   return ()=>controller.abort();
- },[retry]);
+ const {provider,retry}=useAssistantStatus();
  return <section className={panel}><h2 className="font-semibold">Piano proposto per il {day}</h2><p>Le regole del Planner ordinano le attività aperte per quadrante, poi per scadenza. Una dipendenza aperta o indisponibile esclude l’attività dalla proposta.</p>
  {candidates.map((x,i)=><p key={x.key}>{i+1}. {x.title} · {x.source}{x.due?" · "+x.due:""}</p>)}{!candidates.length&&<p>Nessuna attività aperta nelle fonti disponibili.</p>}
  {time!==null&&<p>Margine stimato: {time} min.</p>}<button disabled={!candidates.length} className={btn} onClick={async()=>setSent(await onAccept(candidates.map(x=>x.key)))}>Conferma e sostituisci le priorità del giorno</button>{sent&&<p role="status">Priorità salvate.</p>}
@@ -29,7 +20,7 @@ export function PlanAssistant({day,candidates,time,sources,onAccept}:{day:string
      provider==="missing"?"Provider AI da configurare. Il piano locale è disponibile.":
      provider==="error"?"Configurazione AI indisponibile.":"NEXUS CORE · Provider configurato"}
  </div>
- {provider==="error"&&<button className={btn} onClick={()=>setRetry(n=>n+1)}>Riprova verifica AI</button>}
+ {provider==="error"&&<button className={btn} onClick={retry}>Riprova verifica AI</button>}
  {provider==="configured"&&<details><summary className="cursor-pointer py-2">Consulta il modello configurato per NEXUS</summary>
  <label>Domanda<input className={field} maxLength={800} value={question} onChange={e=>setQuestion(e.target.value)}/></label>
  <p className="text-sm text-mute">Scegli i titoli, le fonti e le scadenze da condividere con il provider configurato sul server.</p>

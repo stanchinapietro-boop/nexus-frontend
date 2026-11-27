@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { academic, api, eur, fin, type Note, type StudyTask, type Summary } from "../api";
 import { events, projects, projectStates, type LifeEvent, type Project } from "../coreRecords";
 import DashboardLayout from "../DashboardLayout";
+import { useAssistantStatus } from "../useAssistantStatus";
 import { openQuickCapture } from "../QuickCapture";
 import { displayDay, getClockOptions, getDateOptions, getZoneOptions, usePrefs } from "../prefs";
 import { inNextWeek, localDay, schoolEntries, type SchoolEntry } from "../schoolAgenda";
@@ -16,6 +17,17 @@ const panel = "rounded-xl border border-line bg-panel p-4 sm:p-5";
 const action = "text-sm font-medium text-accent underline-offset-4 hover:underline";
 const headerAction = "flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm hover:bg-raised";
 type Data<T> = { value: T } | { error: true } | null;
+
+function AssistantWidget() {
+  const {provider,retry} = useAssistantStatus();
+  return <section className={panel}><h2 className="font-semibold">Stato AI</h2>
+    <p role="status" className="my-2 text-sm text-mute">{{
+      checking:"Verifica configurazione…", missing:"Provider AI da configurare. Il piano locale è disponibile.",
+      configured:"Provider configurato sul server.", error:"Stato del provider indisponibile.",
+    }[provider]}</p>
+    {provider==="error" && <button onClick={retry} className={action+" mr-3"}>Riprova</button>}
+    <Link to="/ai" className={action}>Apri assistente</Link></section>;
+}
 
 function PlannerWeek({today}:{today:string}){
   const [summary,setSummary]=useState<WeekSummary|null>(null),[failed,setFailed]=useState(false);
@@ -119,7 +131,7 @@ export default function Dashboard() {
       </Link></li>)}</ul>}
   </section>;
   return <div className="mx-auto max-w-6xl space-y-5">
-    <header className="space-y-3">
+    <header className="nexus-report-header space-y-3">
       <h1 className="text-3xl font-semibold">{hour < 12 ? "Buongiorno" : hour < 18 ? "Buon pomeriggio" : "Buonasera"}</h1>
       <p className="text-mute">{now.toLocaleDateString("it-IT", getDateOptions(prefs))} · {now.toLocaleTimeString("it-IT", getClockOptions(prefs))} · Backend {status}</p>
       <div className="flex flex-wrap gap-2">
@@ -147,7 +159,7 @@ export default function Dashboard() {
          <ul className="divide-y divide-line">{ongoing.slice(0,4).map(p=><li key={p.id}><Link className="block break-words py-2" to={"/projects?id="+p.id}>
           {p.title}<span className="block text-sm text-mute">{projectStates[p.status]} · {p.progress}% · Aggiornato il {new Date(p.updated_at).toLocaleDateString("it-IT")}</span>
           {p.milestone && <span className="text-sm">{p.milestone}</span>}</Link></li>)}</ul>}</section>,
-      ai: <section className={panel}><h2 className="font-semibold">AI Insights</h2><p className="mt-2 text-sm text-mute"><Link to="/ai" className="text-accent">Apri l’assistente di pianificazione</Link></p></section>,
+      ai: <AssistantWidget/>,
       modules: <section className={panel}><h2 className="font-semibold">Panoramica</h2>
         <Link to="/finance" className="mt-3 block text-accent">Finance</Link>{balance ? <p>Saldo {eur(balance.balance_cents)} · Uscite del mese {eur(balance.expense_cents)}</p> : unavailable(Boolean(finance))}
         <Link to="/academic?sezione=agenda" className="mt-3 block text-accent">Academic</Link>{rows ? <p>{openTasks.length} attività aperte · {overdue} in ritardo</p> : unavailable(Boolean(school))}
