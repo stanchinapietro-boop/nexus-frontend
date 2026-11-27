@@ -60,3 +60,10 @@ body {
 
 #root > div > aside { background-color: rgb(var(--nexus-sidebar, var(--nexus-panel))); }
 .text-white { color: rgb(var(--nexus-text)); }
+
+.nexus-report-header {
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid rgb(var(--nexus-line));
+  border-radius: .875rem;
+  background: radial-gradient(ellipse at top right, rgb(var(--accent) / .08), transparent 65%), rgb(var(--nexus-panel));
+}

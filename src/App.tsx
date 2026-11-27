@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import MenuPage from "./pages/MenuPage";
 import Soon from "./pages/Soon";
 const NeuralMap = lazy(() => import("./pages/NeuralMap"));
+const Analytics = lazy(() => import("./pages/Analytics"));
 const Automations = lazy(() => import("./pages/Automations"));
 const Training = lazy(() => import("./pages/Training"));
 const Projects = lazy(() => import("./pages/Projects"));
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="/goals" element={<Navigate replace to="/life?tab=obiettivi"/>} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/map" element={<NeuralMap />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/inbox" element={<InboxPage />} />

@@ -20,7 +20,7 @@ export const NAV: NavItem[] = [
   { path: "/health", label: "Health & Fitness", icon: Activity, ready: true },
   { path: "/volley", label: "Volley", icon: Activity, ready: true },
   { path: "/goals", label: "Goals & Habits", icon: Target, ready: true },
-  { path: "/analytics", label: "Analytics", icon: BarChart3, ready: false },
+  { path: "/analytics", label: "Analytics", icon: BarChart3, ready: true },
   { path: "/automations", label: "Automazioni", icon: Workflow, ready: true },
   { path: "/search", label: "Cerca", icon: Search, ready: true },
   { path: "/notifications", label: "Notifiche", icon: Bell, ready: true },
