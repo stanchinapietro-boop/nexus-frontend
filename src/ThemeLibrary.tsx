@@ -37,6 +37,17 @@ export default function ThemeLibrary() {
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="nexus-theme.json"; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
+  function duplicate() {
+    if (!saved || prefs.savedThemes.length >= 24) return;
+    let n = 1;
+    let title: string;
+    do {
+      const suffix = n === 1 ? " (copia)" : " (copia " + n + ")";
+      title = saved.name.slice(0, 60 - suffix.length).trimEnd() + suffix;
+      n++;
+    } while (prefs.savedThemes.some(t => t.name === title));
+    append({...saved, name:title, colors:{...saved.colors}});
+  }
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-3">
       <label>Elemento <select className={button+" bg-ink"} value={key} onChange={e=>{chooseKey(e.target.value as keyof Colors);setHex(null);}}>
@@ -45,6 +56,9 @@ export default function ThemeLibrary() {
       <label>HEX <input className={button+" w-28 bg-ink"} maxLength={7} value={hex ?? colors[key]} aria-invalid={hex !== null}
         onChange={e=>edit(e.target.value)} onBlur={()=>setHex(null)}/></label>
       <button className={button} onClick={()=>{setPrefs({colors:{}});setHex(null);}}>Ripristina colori del preset</button>
+      <button className={button} disabled={prefs.colors[key]===undefined} onClick={()=>{
+        const colors={...prefs.colors}; delete colors[key]; setPrefs({colors}); setHex(null);
+      }}>Ripristina questo colore</button>
     </div>
     <label className="block">Temi personali <select className={button+" bg-ink"} value={saved?.name ?? ""} onChange={e=>{
       const t=prefs.savedThemes.find(row=>row.name===e.target.value);if(t) activate(t); else {chooseTheme("");setName("");}
@@ -52,6 +66,7 @@ export default function ThemeLibrary() {
     <label className="block">Nome tema <input className={button+" bg-ink"} maxLength={60} value={name} onChange={e=>setName(e.target.value)}/></label>
     <div className="flex flex-wrap gap-2">
       <button className={button} disabled={!canAdd} onClick={()=>append(current(label))}>Salva come nuovo tema</button>
+      <button className={button} disabled={!saved || prefs.savedThemes.length>=24} onClick={duplicate}>Duplica tema salvato</button>
       <button className={button} disabled={!saved} onClick={()=>setPrefs({savedThemes:prefs.savedThemes.map(t=>t===saved?current(t.name):t)})}>Aggiorna tema selezionato</button>
       <button className={button} disabled={!saved || !label || exists} onClick={()=>{
         setPrefs({savedThemes:prefs.savedThemes.map(t=>t===saved?{...t,name:label}:t)});chooseTheme(label);
