@@ -42,7 +42,8 @@ export default function NeuralMap() {
       <small className="block text-mute">{item.kind}</small>{item.title}</button>;
   }
   return <section className="mx-auto max-w-5xl space-y-4">
-    <h1 className="text-3xl font-semibold">Neural Map</h1>
+    <header className="nexus-report-header"><h1 className="text-3xl font-semibold">Neural Map</h1>
+      {page && <p className="mt-2 text-mute">Nodi in questa pagina: {nodes.size} · Collegamenti: {page.connections.length}</p>}</header>
     <label className="block">Relazione<select className={field} value={relation}
       onChange={e => { setRelation(e.target.value); setHistory([]); }}>
       <option value="inbox">Conversioni Inbox</option><option value="project-blocks">Blocchi di calendario e progetti</option>
@@ -69,7 +70,14 @@ export default function NeuralMap() {
     {selected && <aside className={panel}><h2 className="font-semibold">{selected.title}</h2>
       <Link className="text-accent" to={selected.path}>Apri in {selected.kind}</Link>
       <p>{connected?.length === 1 ? "1 collegamento" : (connected?.length ?? 0) + " collegamenti"} in questa pagina</p>
-      {connected?.map(({origin,destination}) => <p key={origin.key+destination.key}>{origin.title} → {destination.title}</p>)}</aside>}
+      <ul>{connected?.map(({origin,destination}) => {
+        const outgoing = origin.key===selected.key;
+        const neighbor = outgoing ? destination : origin;
+        return <li key={origin.key+destination.key}><button className="py-2 text-left hover:text-accent"
+          aria-label={"Esplora "+neighbor.kind+" "+neighbor.title} onClick={()=>setSelected(neighbor)}>
+          <span aria-hidden="true">{outgoing ? "→" : "←"} </span>{neighbor.title} · {neighbor.kind}
+        </button></li>;
+      })}</ul></aside>}
     <div className="flex gap-2">{history.length > 0 && <button className={btn} onClick={() => setHistory(h => h.slice(0,-1))}>Precedenti</button>}
       {page?.next_before && <button className={btn} onClick={() => setHistory(h => [...h,page.next_before!])}>Altri collegamenti</button>}</div>
   </section>;
