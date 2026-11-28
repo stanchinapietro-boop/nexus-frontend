@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { req } from "../api";
 import { btn, field, panel } from "../planner";
 
-type GraphNode = { key: string; title: string; kind: string; path: string };
-type Connection = { origin: GraphNode; destination: GraphNode };
+import Constellation, {type GraphNode,type Connection} from "./Constellation";
 type Page = { connections: Connection[]; next_before: number | null };
 
 export default function NeuralMap() {
@@ -15,7 +14,7 @@ export default function NeuralMap() {
   const [page, setPage] = useState<Page | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [view, setView] = useState<"edges" | "nodes">("edges");
+  const [view, setView] = useState<"edges" | "nodes" | "sphere">("edges");
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -57,16 +56,18 @@ export default function NeuralMap() {
       <div role="group" aria-label="Vista della mappa" className="flex gap-2">
         <button className={btn} aria-pressed={view==="edges"} onClick={()=>setView("edges")}>Collegamenti</button>
         <button className={btn} aria-pressed={view==="nodes"} onClick={()=>setView("nodes")}>Per nodo</button>
+        <button className={btn} aria-pressed={view==="sphere"} onClick={()=>setView("sphere")}>Costellazione</button>
       </div>
       <div className="flex items-center gap-2"><button className={btn} aria-label="Riduci zoom" disabled={zoom <= 0.75} onClick={() => setZoom(z => z-.25)}>−</button>
         <span>{zoom*100}%</span><button className={btn} aria-label="Aumenta zoom" disabled={zoom >= 2} onClick={() => setZoom(z => z+.25)}>+</button></div>
+      {view==="sphere" ? <Constellation nodes={Array.from(nodes.values())} edges={page.connections} selected={selected} select={setSelected} zoom={zoom}/> :
       <div tabIndex={0} aria-label="Mappa dei collegamenti" className="max-h-96 overflow-auto rounded-xl border border-line bg-panel p-3">
         <ul className="space-y-3" style={{width: (zoom*100)+"%", minWidth: (20*zoom)+"rem", fontSize: zoom+"rem"}}>
           {view==="nodes" ? Array.from(nodes.values(), item => <li key={item.key} className="flex">{node(item)}</li>) : page.connections.map(({origin,destination}) => <li key={origin.key+destination.key} className="flex items-center gap-2">
             {node(origin)}<span aria-label={relation === "inbox" ? "Convertito in" : "Pianificato per"} className="text-accent">→</span>{node(destination)}
           </li>)}
         </ul>
-      </div></>}
+      </div>}</>}
     {selected && <aside className={panel}><h2 className="font-semibold">{selected.title}</h2>
       <Link className="text-accent" to={selected.path}>Apri in {selected.kind}</Link>
       <p>{connected?.length === 1 ? "1 collegamento" : (connected?.length ?? 0) + " collegamenti"} in questa pagina</p>
