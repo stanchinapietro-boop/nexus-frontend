@@ -99,7 +99,7 @@ export default function SettingsPage() {
       <div><Link className={button} to="/menu">Gestisci i moduli e i preferiti</Link></div>
     </Panel>
     <Panel title="Editor dei temi"><ThemeLibrary/></Panel>
-    <Panel title="Dashboard"><DashboardControls /></Panel>
+    <Panel title="Dashboard"><DashboardControls key={prefs.activeProfile} /></Panel>
     <Panel title="Configurazione personale"><ConfigurationFiles/></Panel>
     <Panel title="Integrazioni">
       <p>TickTick · {tickError ? "Stato non disponibile" : connection ? connection.connected ? "Collegato" : connection.configured ? "Da collegare" : "Da configurare" : "Verifica in corso…"}</p>
