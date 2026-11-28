@@ -19,7 +19,8 @@ export default function ThemeLibrary() {
   function edit(value: string) {
     setHex(value);
     if (/^#[0-9a-f]{6}$/i.test(value)) {
-      setPrefs({colors:{...prefs.colors,[key]:value}}); setHex(null);
+      const color=value.toLowerCase();
+      setPrefs({colors:{...prefs.colors,[key]:color},recentColors:[color,...prefs.recentColors.filter(v=>v!==color)].slice(0,8)}); setHex(null);
     }
   }
   function current(title: string): SavedTheme {
@@ -49,6 +50,9 @@ export default function ThemeLibrary() {
     append({...saved, name:title, colors:{...saved.colors}});
   }
   return <div className="space-y-4">
+    {!!prefs.recentColors.length && <div className="flex flex-wrap items-center gap-2"><span className="text-sm text-mute">Colori recenti</span>
+      {prefs.recentColors.map(color=><button key={color} className="rounded border border-line px-2 py-1 text-sm" aria-label={"Usa "+color}
+        onClick={()=>edit(color)}><span aria-hidden="true" className="mr-1 inline-block h-3 w-3 rounded-full border border-line" style={{background:color}}/>{color}</button>)}</div>}
     <div className="flex flex-wrap items-center gap-3">
       <label>Elemento <select className={button+" bg-ink"} value={key} onChange={e=>{chooseKey(e.target.value as keyof Colors);setHex(null);}}>
         {Object.entries(colorNames).map(([id,title])=><option key={id} value={id}>{title}</option>)}</select></label>

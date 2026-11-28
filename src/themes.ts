@@ -18,7 +18,8 @@ export function isTheme(value: unknown): value is ThemeId {
 function channels(hex: string) {
   return [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16)).join(" ");
 }
-export const colorNames = { ink: "Sfondo", panel: "Schede", raised: "Superficie elevata", line: "Bordi", text: "Testo", mute: "Testo secondario", sidebar: "Barra laterale" };
+export const colorNames = { ink: "Sfondo", panel: "Schede", raised: "Superficie elevata", line: "Bordi", text: "Testo", mute: "Testo secondario", sidebar: "Barra laterale",
+  secondary:"Colore secondario", success:"Successo", warning:"Avviso", error:"Errore", info:"Informazione" };
 export type Colors = Partial<Record<keyof typeof colorNames, string>>;
 export type SavedTheme = { name: string; theme: ThemeId; accent: string; colors: Colors };
 export function validColors(value: unknown): value is Colors {
@@ -33,7 +34,10 @@ export function validSavedTheme(value: unknown): value is SavedTheme {
 }
 export function palette(id: ThemeId) {
   const [, , ink, panel, raised, line] = themes[id];
-  return { ink, panel, raised, line, sidebar: panel, text: id === "light" ? "#1c1e24" : "#e8edf2", mute: id === "light" ? "#52565f" : "#95959e" };
+  const light=id==="light";
+  return { ink, panel, raised, line, sidebar: panel, text: light ? "#1c1e24" : "#e8edf2", mute: light ? "#52565f" : "#95959e",
+    secondary: light?"#256672":themes[id][1], success: light?"#216950":"#7cdcb4", warning: light?"#875808":"#f1ca79",
+    error:light?"#a52a29":"#ff9995", info:light?"#245f85":"#94d5ed"};
 }
 export function applyTheme(id: ThemeId, accent: string, colors: Colors = {}) {
   const root = document.documentElement;

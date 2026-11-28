@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, GripVertical, SlidersHorizontal } from "lucide-react";
+import {allWidgets,widgetFormats,type WidgetFormat} from "./prefs";
 import { defaultWide, defaultWidgets, prefsSaved, setPrefs, usePrefs, widgetLimit, widgetNames, widgetType, type WidgetId, type WidgetInstance } from "./prefs";
 
 const control = "inline-flex min-h-10 items-center justify-center rounded-lg border border-line px-3 text-sm hover:bg-raised disabled:opacity-40";
@@ -16,11 +17,16 @@ const catalog: Record<WidgetId, [string, string]> = {
   upcoming:["Calendario","Appuntamenti in corso o futuri."],
   ai:["AI","Configurazione del provider e accesso al piano del giorno."],
   insights:["Academic","Attività in scadenza oggi e avanzamento settimanale."],
+  clock:["Tempo","Ora e data nel fuso del workspace."],exams:["Academic","Prossimi esami aperti in ordine di data."],
+  balance:["Finanza","Saldo complessivo dei conti registrati."],income:["Finanza","Entrate registrate nel mese corrente."],
+  spending:["Finanza","Uscite del mese raggruppate per categoria."],goals:["Personale","Obiettivi attivi e progressi registrati."],
+  habits:["Produttività","Abitudini previste oggi e completamenti."],deadlines:["Academic","Prossime attività scolastiche aperte."],
+  health:["Salute","Ultime sessioni di allenamento completate."],
 };
 
-export function DashboardControls({ available = defaultWidgets }: { available?: WidgetId[] }) {
+export function DashboardControls({ available = allWidgets }: { available?: WidgetId[] }) {
   const prefs = usePrefs();
-  const saved = { dashboardOrder: prefs.dashboardOrder, dashboardHidden: prefs.dashboardHidden, dashboardWide: prefs.dashboardWide };
+  const saved = { dashboardOrder: prefs.dashboardOrder, dashboardHidden: prefs.dashboardHidden, dashboardWide: prefs.dashboardWide, dashboardSizes:prefs.dashboardSizes };
   type Layout = typeof saved;
   const [draft, setDraft] = useState<Layout | null>(null);
   const [past,setPast] = useState<Layout[]>([]);
@@ -64,10 +70,14 @@ export function DashboardControls({ available = defaultWidgets }: { available?: 
     const copy: WidgetInstance = `${type}~${sequence}`;
     const next = [...layout.dashboardOrder];
     next.splice(next.indexOf(id) + 1, 0, copy);
-    edit({ dashboardOrder: next, dashboardWide: layout.dashboardWide.includes(id) ? [...layout.dashboardWide, copy] : layout.dashboardWide });
+    const sizes={...layout.dashboardSizes};
+    if(sizes[id]) sizes[copy]=sizes[id];
+    edit({ dashboardOrder: next, dashboardSizes:sizes, dashboardWide: layout.dashboardWide.includes(id) ? [...layout.dashboardWide, copy] : layout.dashboardWide });
   }
   function removeCopy(id: WidgetInstance) {
+    const sizes={...layout.dashboardSizes};delete sizes[id];
     edit({
+      dashboardSizes:sizes,
       dashboardOrder: layout.dashboardOrder.filter(k => k !== id),
       dashboardHidden: layout.dashboardHidden.filter(k => k !== id),
       dashboardWide: layout.dashboardWide.filter(k => k !== id),
@@ -86,12 +96,12 @@ export function DashboardControls({ available = defaultWidgets }: { available?: 
           <p className="mb-2 grow text-sm text-mute">{catalog[id][1]}</p>
           <span role="status" className="text-xs text-mute">Nel layout: {count}</span>
           <button className={control} disabled={!hidden && layout.dashboardOrder.length>=widgetLimit}
-            onClick={()=>hidden ? edit({dashboardHidden:layout.dashboardHidden.filter(key=>key!==hidden)}) : duplicate(id)}
-            aria-label={"Aggiungi alla dashboard "+widgetNames[id]}>{hidden ? "Mostra widget" : "Aggiungi copia"}</button>
+            onClick={()=>hidden ? edit({dashboardHidden:layout.dashboardHidden.filter(key=>key!==hidden)}) : order.includes(id) ? duplicate(id) : edit({dashboardOrder:[...layout.dashboardOrder,id]})}
+            aria-label={"Aggiungi alla dashboard "+widgetNames[id]}>{hidden ? "Mostra widget" : order.includes(id) ? "Aggiungi copia" : "Aggiungi widget"}</button>
         </li>;
       })}</ul>
     </details>
-    <p className="text-sm text-mute">Scegli i widget da mostrare. La larghezza estesa si applica agli schermi con due colonne.</p>
+    <p className="text-sm text-mute">Scegli visibilità, ordine e formato. Su telefono i widget occupano una colonna.</p>
     <ul className="divide-y divide-line">{order.map((id, index) => {
       const visible = !layout.dashboardHidden.includes(id);
       const wide = layout.dashboardWide.includes(id);
@@ -102,17 +112,18 @@ export function DashboardControls({ available = defaultWidgets }: { available?: 
         <span draggable title={"Trascina " + name} className="cursor-grab p-2 text-mute" onDragStart={e => { e.dataTransfer.setData("text/plain", id); setDragging(id); }} onDragEnd={() => setDragging(null)}><GripVertical size={16}/></span>
         <label className="flex min-h-11 min-w-36 flex-1 items-center gap-2"><input type="checkbox" checked={visible}
           onChange={() => edit({ dashboardHidden: visible ? [...layout.dashboardHidden, id] : layout.dashboardHidden.filter(key => key !== id) })} />{name}</label>
-        <button className={control} aria-pressed={wide} aria-label={"Larghezza estesa per " + name} onClick={() => edit({ dashboardWide: wide ? layout.dashboardWide.filter(key => key !== id) : [...layout.dashboardWide, id] })}>
-          {wide ? "Estesa" : "Normale"}
-        </button>
+        <select aria-label={"Formato per "+name} className={control+" bg-ink"} value={layout.dashboardSizes[id] ?? (wide?"full":"2x1")}
+          onChange={e=>{const size=e.target.value as WidgetFormat;const rest=layout.dashboardWide.filter(key=>key!==id);
+            edit({dashboardSizes:{...layout.dashboardSizes,[id]:size},dashboardWide:size==="full"||size==="4x1"?[...rest,id]:rest});}}>
+          {Object.entries(widgetFormats).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
         <button className={control} aria-label={"Duplica " + name} disabled={layout.dashboardOrder.length >= widgetLimit}
           onClick={() => duplicate(id)}>Duplica</button>
-        {id !== type && <button className={control} aria-label={"Rimuovi " + name} onClick={() => removeCopy(id)}>Rimuovi</button>}
+        {(id !== type || !defaultWidgets.includes(type)) && <button className={control} aria-label={"Rimuovi " + name} onClick={() => removeCopy(id)}>Rimuovi</button>}
         <button className={control} aria-label={"Sposta su " + name} disabled={index === 0} onClick={() => move(id, order[index - 1])}><ArrowUp size={16}/></button>
         <button className={control} aria-label={"Sposta giù " + name} disabled={index === order.length - 1} onClick={() => move(id, order[index + 1])}><ArrowDown size={16}/></button>
       </li>;
     })}</ul>
-    <button className={control} onClick={() => edit({ dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide })}>Ripristina layout</button>
+    <button className={control} onClick={() => edit({ dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide, dashboardSizes:{} })}>Ripristina layout</button>
     {draft && <div className="flex flex-wrap gap-2">
       <button className={control} disabled={!past.length || conflict} onClick={undo}>Annulla ultimo passo</button>
       <button className={control} disabled={!future.length || conflict} onClick={redo}>Ripeti ultimo passo</button>
@@ -127,14 +138,14 @@ export function DashboardControls({ available = defaultWidgets }: { available?: 
 export default function DashboardLayout({ widgets }: { widgets: Partial<Record<WidgetId, ReactNode>> }) {
   const prefs = usePrefs();
   const [editing, setEditing] = useState(false);
-  const available = defaultWidgets.filter(id => widgets[id] != null);
+  const available = allWidgets.filter(id => widgets[id] != null);
   const visible = prefs.dashboardOrder.filter(id => available.includes(widgetType(id)) && !prefs.dashboardHidden.includes(id));
   return <>
     <div className="flex justify-end"><button className={control + " gap-2"} aria-expanded={editing}
       aria-controls="dashboard-preferenze" onClick={() => setEditing(v => !v)}><SlidersHorizontal size={16} />{editing ? "Chiudi personalizzazione" : "Personalizza dashboard"}</button></div>
     {editing && <section id="dashboard-preferenze" aria-label="Personalizzazione dashboard" className="rounded-xl border border-line bg-panel p-4"><DashboardControls key={prefs.activeProfile} available={available}/></section>}
-    {visible.length ? <div className={"grid grid-cols-1 items-start md:grid-cols-2 " + (prefs.density === "compact" ? "gap-2" : "gap-5")}>
-      {visible.map(id => <div key={id} data-widget={id} className={"min-w-0 " + (prefs.dashboardWide.includes(id) ? "md:col-span-2" : "")}>{widgets[widgetType(id)]}</div>)}
+    {visible.length ? <div className={"nexus-widget-grid grid grid-cols-1 items-start " + (prefs.density === "compact" ? "gap-2" : "gap-5")}>
+      {visible.map(id => <div key={id} data-widget={id} data-size={prefs.dashboardSizes[id]??(prefs.dashboardWide.includes(id)?"full":"2x1")} className="min-w-0">{widgets[widgetType(id)]}</div>)}
     </div> : <p className="rounded-xl border border-line p-5 text-mute">Tutti i widget sono nascosti. Apri «Personalizza dashboard» per mostrarli.</p>}
   </>;
 }

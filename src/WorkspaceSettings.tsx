@@ -1,6 +1,6 @@
 import { newProfileId } from "./configuration";
 import { useState } from "react";
-import { appearance, defaultAppearance, defaultWidgets, setPrefs, usePrefs, widgetNames, type WidgetId, type Workspace } from "./prefs";
+import { appearance, defaultAppearance, defaultWidgets, setPrefs, usePrefs, widgetNames, workspacePatch, type WidgetId, type Workspace } from "./prefs";
 
 const control = "min-h-11 rounded-lg border border-line bg-ink px-3 py-2";
 const presets: {name:string; widgets:WidgetId[]; wide:WidgetId[]}[] = [
@@ -23,8 +23,7 @@ export default function WorkspaceSettings() {
   const label = name.trim();
   const full = prefs.profiles.length >= 24;
   function activate(next: Workspace, profiles = prefs.profiles) {
-    const saved = profiles.map(row => row.id === active.id ? { ...row, appearance: appearance(prefs) } : row);
-    setPrefs({ profiles: saved, activeProfile: next.id, ...next.appearance });
+    setPrefs(workspacePatch(prefs,next,profiles));
     setName("");
     setConfirm(false);
   }
@@ -59,7 +58,7 @@ export default function WorkspaceSettings() {
       <button className={control} disabled={full} onClick={()=>{
         const next = {id:newProfileId(), name:label || preset.name, appearance:{...appearance(prefs),
           dashboardOrder:[...preset.widgets,...defaultWidgets.filter(id=>!preset.widgets.includes(id))],
-          dashboardHidden:defaultWidgets.filter(id=>!preset.widgets.includes(id)), dashboardWide:[...preset.wide]}};
+          dashboardHidden:defaultWidgets.filter(id=>!preset.widgets.includes(id)), dashboardWide:[...preset.wide], dashboardSizes:{}}};
         activate(next,[...prefs.profiles,next]);
       }}>Crea workspace da preset</button>
       {full && <p className="text-sm text-mute">Limite di 24 workspace raggiunto.</p>}

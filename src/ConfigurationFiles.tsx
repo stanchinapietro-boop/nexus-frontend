@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { exportConfiguration, newProfileId, readConfiguration } from "./configuration";
+import { configurationLimit,exportConfiguration, newProfileId, readConfiguration } from "./configuration";
 import { setPrefs, usePrefs, type Prefs } from "./prefs";
 
 const button = "min-h-11 rounded-lg border border-line px-3";
@@ -12,7 +12,7 @@ export default function ConfigurationFiles() {
     const json = JSON.stringify(exportConfiguration(prefs));
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
     const link = document.createElement("a");
-    link.href = url; link.download = "nexus-configurazione-v1.json"; link.click();
+    link.href = url; link.download = "nexus-configurazione-v2.json"; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function inspect(file?: File) {
@@ -20,11 +20,11 @@ export default function ConfigurationFiles() {
     setError(""); setIncoming(null);
     if (!file) return;
     try {
-      if (file.size > 128000) throw new Error();
+      if (file.size > configurationLimit) throw new Error();
       const candidate = readConfiguration(await file.text());
       if (current === selection.current) setIncoming(candidate);
     } catch {
-      if (current === selection.current) setError("File non valido. Seleziona un export NEXUS v1 fino a 128 KB.");
+      if (current === selection.current) setError("File non valido. Seleziona una configurazione NEXUS v1 o v2 fino a 512 KB.");
     }
   }
   return <div className="space-y-3">

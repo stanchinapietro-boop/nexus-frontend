@@ -15,8 +15,6 @@
 }
 :root[data-theme="light"] :is(.text-white, .hover\:text-white:hover, dialog) { color: rgb(var(--nexus-text)); }
 :root[data-theme="light"] .text-accent { color: color-mix(in srgb, rgb(var(--accent)) 65%, black); }
-:root[data-theme="light"] :is(.text-red-300, .text-red-400) { color: #a52a29; }
-:root[data-theme="light"] :is(.text-amber-300, .text-amber-400) { color: #875808; }
 
 html, body, #root { height: 100%; }
 body {
@@ -37,9 +35,9 @@ button, a, [role="button"] { touch-action: manipulation; }
 @media (max-width: 767px) { input, select, textarea { font-size: 16px !important; } }
 
 /* Scrollbar sottili e scure ovunque */
-* { scrollbar-width: thin; scrollbar-color: #34343a transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--nexus-line)) transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: #34343a; border-radius: 8px; }
+*::-webkit-scrollbar-thumb { background: rgb(var(--nexus-line)); border-radius: 8px; }
 
 /* Sfondo con un leggero bagliore del colore principale */
 body {

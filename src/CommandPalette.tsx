@@ -3,10 +3,11 @@ import { ArrowRight, Clock3, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRecordSearch } from "./useRecordSearch";
 import { NAV } from "./nav";
-import { setPrefs, usePrefs } from "./prefs";
+import { setPrefs, usePrefs, workspacePatch, profilePatch, type Prefs } from "./prefs";
+import {themes, type ThemeId} from "./themes";
 import { openQuickCapture } from "./QuickCapture";
 
-type Command = { id: string; label: string; path?: string; hint?: string };
+type Command = { id: string; label: string; path?: string; hint?: string; patch?:Partial<Prefs> };
 const commands: Command[] = [
   { id: "capture", label: "Acquisizione rapida", hint: "Ctrl/⌘ Alt I" },
   { id: "plan-day", label: "Pianifica la giornata", path: "/life?tab=oggi" },
@@ -28,11 +29,19 @@ export default function CommandPalette({ onDismiss }: { onDismiss: () => void })
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const { recentCommands } = usePrefs();
+  const prefs=usePrefs();
+  const {recentCommands}=prefs;
   const navigate = useNavigate();
   const clean = query.trim();
   const { response, error } = useRecordSearch(clean);
-  const available = commands.filter(cmd => normalize(cmd.label).includes(normalize(clean)));
+  const personalized:Command[]=[
+    ...prefs.interfaceProfiles.filter(p=>prefs.profiles.some(w=>w.id===p.workspaceId)).map(p=>({id:"profile-"+p.id,label:"Attiva profilo "+p.name,patch:profilePatch(prefs,p)})),
+    ...prefs.profiles.filter(w=>w.id!==prefs.activeProfile).map(w=>({id:"ws-"+w.id,label:"Passa al workspace "+w.name,patch:workspacePatch(prefs,w)})),
+    ...(Object.keys(themes) as ThemeId[]).map(theme=>({id:"theme-"+theme,label:"Applica tema "+themes[theme][0],patch:{theme,accent:themes[theme][1],colors:{}}})),
+    ...prefs.savedThemes.map(t=>({id:"saved-"+t.name,label:"Applica tema personale "+t.name,patch:{theme:t.theme,accent:t.accent,colors:t.colors}})),
+  ];
+  const available = [...commands.map(cmd=>prefs.navigation[cmd.id]?.label ? {...cmd,label:"Apri "+prefs.navigation[cmd.id].label,hint:cmd.label} : cmd),...personalized]
+    .filter(cmd => normalize(cmd.label+" "+(cmd.hint??"")).includes(normalize(clean)));
   const recent = clean ? [] : recentCommands.flatMap(id => available.filter(cmd => cmd.id === id));
   const results: Command[] = [...recent, ...available.filter(cmd => !recent.includes(cmd))];
   for (const hit of response?.results.slice(0, 12) ?? []) {
@@ -48,7 +57,7 @@ export default function CommandPalette({ onDismiss }: { onDismiss: () => void })
   }, []);
   useEffect(() => { document.getElementById("cmd-" + index)?.scrollIntoView?.({ block: "nearest" }); }, [index]);
   function run(cmd: Command) {
-    if (cmd.id !== "global-search" && !cmd.id.startsWith("record-")) setPrefs({ recentCommands: [cmd.id, ...recentCommands.filter(id => id !== cmd.id)].slice(0, 5) });
+    if (cmd.id !== "global-search" && !cmd.id.startsWith("record-")) setPrefs({ ...cmd.patch,recentCommands: [cmd.id, ...recentCommands.filter(id => id !== cmd.id)].slice(0, 5) });
     dialog.current?.close();
     onDismiss();
     if (cmd.id === "capture") openQuickCapture();

@@ -7,6 +7,7 @@ type State={mode:string;workspace:string;revision:number;version:number;preferen
 export default function CloudSync({children}:{children:ReactNode}){
  const [ready,setReady]=useState(false);
  const [identity,setIdentity]=useState("");
+ const [saveState,setSaveState]=useState<"idle"|"saving"|"saved">("idle");
  const [epoch,refresh]=useState(0),[notice,message]=useState(""),[pending,setPending]=useState(false);
  const observed=useRef<State|null>(null), interacted=useRef(false), path=useLocation();
  useEffect(()=>{interacted.current=false;setPending(false);const s=observed.current;if(s?.workspace)setViewRevision(s.workspace+"/"+s.revision);},[path.key]);
@@ -35,6 +36,7 @@ export default function CloudSync({children}:{children:ReactNode}){
    if(!base||base.mode!=="cloud"){message("Preferenza disponibile su questo dispositivo. Sincronizzazione cloud indisponibile.");return;}
    const expected = optimistic(base.preferences);
    queued.push(patch);
+   setSaveState("saving");
    writes=writes.then(async()=>{
     if(!live)return;
     const latest=observed.current;
@@ -42,6 +44,7 @@ export default function CloudSync({children}:{children:ReactNode}){
     if (!latest || latest.workspace !== base.workspace || [...keys].some(key =>
       !sameValue(expected[key], latest.preferences[key]))) {
       queued.shift();
+      setSaveState(queued.length?"saving":"idle");
       if (latest) applyCloudPrefs(optimistic(latest.preferences));
       message("Preferenza cambiata. Controlla il valore e riprova.");
       return;
@@ -49,8 +52,10 @@ export default function CloudSync({children}:{children:ReactNode}){
     try {
       const result=await req<State>("/sync/preferences",{method:"PATCH",body:JSON.stringify({patch,version:latest.version})});
       queued.shift(); seq++; receive(result);
+      if(live)setSaveState(queued.length?"saving":"saved");
     } catch {
       queued.shift(); await check();
+      if(live)setSaveState(queued.length?"saving":"idle");
       if(live && observed.current) applyCloudPrefs(optimistic(observed.current.preferences));
       if(live) message("Preferenza cloud non salvata. Verifica il valore e riprova.");
     }
@@ -63,5 +68,6 @@ export default function CloudSync({children}:{children:ReactNode}){
   return()=>{live=false;setViewRevision("");clearInterval(timer);window.removeEventListener("nexus:save-prefs",save);window.removeEventListener("online",tick);window.removeEventListener("offline",offline);document.removeEventListener("visibilitychange",tick);};
  },[]);
  return <>{path.pathname==="/settings"&&identity&&<p className="text-sm text-mute">Archivio cloud NEXUS · {identity}</p>}{notice&&<p role="status">{notice}</p>}{pending&&<button className="rounded border p-2" onClick={()=>{interacted.current=false;setPending(false);const s=observed.current;if(s)setViewRevision(s.workspace+"/"+s.revision);refresh(n=>n+1);}}>Dati aggiornati sul server · ricarica questa sezione dopo aver salvato le bozze</button>}
+ {path.pathname==="/settings" && saveState!=="idle" && <p role="status" className="text-sm" style={{color:"rgb(var(--nexus-info))"}}>{saveState==="saved"?"Preferenze salvate nel cloud.":"Salvataggio preferenze…"}</p>}
  <div key={epoch} onClickCapture={()=>{interacted.current=true;}} onChangeCapture={()=>{interacted.current=true;}}>{ready?children:<p role="status">Connessione all’archivio NEXUS…</p>}</div></>;
 }

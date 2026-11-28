@@ -5,7 +5,8 @@ import { Link } from "react-router-dom";
 import { academic, api, eur, fin, type Note, type StudyTask, type Summary } from "../api";
 import { events, projects, projectStates, type LifeEvent, type Project } from "../coreRecords";
 import DashboardLayout from "../DashboardLayout";
-import { useAssistantStatus } from "../useAssistantStatus";
+import AssistantWidget from "../AssistantWidget";
+import LifeWidget from "./LifeWidget";
 import { openQuickCapture } from "../QuickCapture";
 import { displayDay, getClockOptions, getDateOptions, getZoneOptions, usePrefs } from "../prefs";
 import { inNextWeek, localDay, schoolEntries, type SchoolEntry } from "../schoolAgenda";
@@ -17,17 +18,6 @@ const panel = "rounded-xl border border-line bg-panel p-4 sm:p-5";
 const action = "text-sm font-medium text-accent underline-offset-4 hover:underline";
 const headerAction = "flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm hover:bg-raised";
 type Data<T> = { value: T } | { error: true } | null;
-
-function AssistantWidget() {
-  const {provider,retry} = useAssistantStatus();
-  return <section className={panel}><h2 className="font-semibold">Stato AI</h2>
-    <p role="status" className="my-2 text-sm text-mute">{{
-      checking:"Verifica configurazione…", missing:"Provider AI da configurare. Il piano locale è disponibile.",
-      configured:"Provider configurato sul server.", error:"Stato del provider indisponibile.",
-    }[provider]}</p>
-    {provider==="error" && <button onClick={retry} className={action+" mr-3"}>Riprova</button>}
-    <Link to="/ai" className={action}>Apri assistente</Link></section>;
-}
 
 function PlannerWeek({today}:{today:string}){
   const [summary,setSummary]=useState<WeekSummary|null>(null),[failed,setFailed]=useState(false);
@@ -139,6 +129,18 @@ export default function Dashboard() {
       </div>
     </header>
     <DashboardLayout widgets={{
+      clock:<section className={panel}><h2 className="font-semibold">Orologio</h2><time className="text-3xl">{now.toLocaleTimeString("it-IT",getClockOptions(prefs))}</time>
+        <p className="text-mute">{now.toLocaleDateString("it-IT",getDateOptions(prefs))}</p></section>,
+      balance:<section className={panel}><h2 className="font-semibold">Saldo conti</h2>{balance?<p>{balance.accounts.length?eur(balance.balance_cents):"Nessun conto registrato."}</p>:unavailable(Boolean(finance))}</section>,
+      income:<section className={panel}><h2 className="font-semibold">Entrate del mese</h2>{balance?<p>{month} · {eur(balance.income_cents)}</p>:unavailable(Boolean(finance))}</section>,
+      spending:<section className={panel}><h2 className="font-semibold">Spese per categoria</h2>{!balance?unavailable(Boolean(finance)):!balance.by_category.length?<p>Nessuna spesa registrata nel mese.</p>:
+        <ul>{balance.by_category.map(c=><li key={c.category_id??c.name}>{c.name} · {eur(c.cents)}</li>)}</ul>}</section>,
+      exams:<section className={panel}><h2 className="font-semibold">Prossimi esami</h2>{!rows?unavailable(Boolean(school)):
+        rows.entries.some(e=>e.source==="exams"&&!e.completed&&e.date>=today)?<ul>{rows.entries.filter(e=>e.source==="exams"&&!e.completed&&e.date>=today).slice(0,5)
+          .map(e=><li key={e.key}><Link to="/academic?sezione=exams">{e.date} · {e.title}</Link></li>)}</ul>:<p>Nessun esame in programma.</p>}</section>,
+      deadlines:<section className={panel}><h2 className="font-semibold">Attività in scadenza</h2>{!rows?unavailable(Boolean(school)):
+        next.some(e=>e.source==="agenda")?<ul>{next.filter(e=>e.source==="agenda").slice(0,5).map(e=><li key={e.key}><Link to="/academic?sezione=agenda">{e.date} · {e.title}</Link></li>)}</ul>:<p>Nessuna attività nei prossimi sette giorni.</p>}</section>,
+      goals:<LifeWidget kind="goals"/>,habits:<LifeWidget kind="habits"/>,health:<LifeWidget kind="health"/>,
       tasks: <TodayTasks tasks={tick}/>,
       school: schoolWidget,
       focus: <div className="space-y-2"><DailyFocus key={today} day={today} options={focus} partial={!rows || !!tick.error || !tick.status}/><PlannerWeek today={today}/><Link className="text-accent" to="/life">Apri il piano del giorno</Link> · <Link className="text-accent" to="/life?tab=settimana">Settimana</Link></div>,

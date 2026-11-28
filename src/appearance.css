@@ -1,0 +1,54 @@
+/* Scoped tokens preserve semantic shapes such as badges and progress rings. */
+:root { --sidebar-width:224px; --card-radius:.75rem; --motion-duration:150ms; }
+:root[data-sidebar="narrow"] { --sidebar-width:192px; }
+:root[data-sidebar="wide"] { --sidebar-width:272px; }
+:root[data-sidebar="widest"] { --sidebar-width:304px; }
+.nexus-sidebar-expanded { width:var(--sidebar-width); }
+:root[data-scale="small"] {font-size:90%}
+:root[data-scale="large"] {font-size:112%}
+:root[data-scale="largest"] {font-size:125%}
+:root[data-font="sans"] body, :root[data-headings="sans"] :is(h1,h2,h3,h4) {font-family:Arial, sans-serif}
+:root[data-font="serif"] body, :root[data-headings="serif"] :is(h1,h2,h3,h4) {font-family:Georgia, serif}
+:root[data-font="mono"] body, :root[data-headings="mono"] :is(h1,h2,h3,h4) {font-family:Consolas, monospace}
+:root[data-radius="sharp"] {--card-radius:0}
+:root[data-radius="small"] {--card-radius:.375rem}
+:root[data-radius="large"] {--card-radius:1.125rem}
+:root[data-radius="round"] {--card-radius:1.625rem}
+main :is(.bg-panel.rounded-xl,.bg-panel.rounded-2xl,.nexus-report-header) {border-radius:var(--card-radius)}
+:root[data-cards="glass"] main .bg-panel {background-color:rgb(var(--nexus-panel)/.86);backdrop-filter:blur(8px)}
+:root[data-cards="transparent"] main .bg-panel {background-color:rgb(var(--nexus-panel)/.55)}
+:root[data-cards="elevated"] main .bg-panel {box-shadow:0 .5rem 1.3rem rgb(0 0 0/.22)}
+:root[data-cards="minimal"] main .bg-panel {background-color:transparent;border-color:rgb(var(--nexus-line)/.55)}
+:root[data-background="solid"] body {background:rgb(var(--nexus-ink))}
+:root:is([data-background="gradient"],[data-background="animated"]) body {
+ background:linear-gradient(125deg,rgb(var(--nexus-ink)) 15%,rgb(var(--nexus-raised)),rgb(var(--nexus-ink)) 85%);background-attachment:fixed;
+}
+:root[data-background="animated"] body {background-size:180% 180%;animation:nexus-shift 24s ease-in-out infinite alternate}
+@keyframes nexus-shift {to{background-position:100% 100%}}
+:root[data-motion="reduced"] {--motion-duration:80ms}
+:root[data-motion="subtle"] {--motion-duration:110ms}
+:root[data-motion="cinematic"] {--motion-duration:320ms}
+:root .transition-colors {transition-duration:var(--motion-duration)}
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after {transition:none!important;animation:none!important}
+:root[data-motion="reduced"] :is(body,.animate-pulse,.nexus-core) {animation:none!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+.nexus-core {position:relative;display:inline-block;flex:none;width:3rem;height:3rem;border-radius:50%;
+ color:rgb(var(--accent));border:1px solid currentColor;background:radial-gradient(circle,currentColor 0 6%,transparent 8% 25%,rgb(var(--accent)/.24) 26% 29%,transparent 31%);}
+.nexus-core::before,.nexus-core::after {content:"";position:absolute;inset:12%;border:2px solid transparent;border-top-color:currentColor;border-bottom-color:currentColor;border-radius:50%;transform:rotate(-35deg)}
+.nexus-core::after {inset:26%;transform:rotate(45deg)}
+.nexus-core[data-error="true"] {color:rgb(var(--nexus-error,217 96 95))}
+.nexus-core::after {border-top-color:rgb(var(--nexus-secondary));border-bottom-color:rgb(var(--nexus-secondary))}
+.nexus-report-header h1 {text-decoration:underline;text-decoration-color:rgb(var(--nexus-secondary)/.6);text-decoration-thickness:2px;text-underline-offset:.23em}
+@media (prefers-reduced-motion:no-preference){
+ :root:not([data-motion="off"]):not([data-motion="reduced"]) .nexus-core[data-active="true"]::before {animation:nexus-orbit 2s linear infinite}
+}
+@keyframes nexus-orbit {to{transform:rotate(325deg)}}
+@media(min-width:768px){
+ .nexus-widget-grid {grid-template-columns:repeat(4,minmax(0,1fr))}
+ .nexus-widget-grid>[data-size="2x1"],.nexus-widget-grid>[data-size="2x2"] {grid-column:span 2}
+ .nexus-widget-grid>[data-size="4x1"] {grid-column:span 4}
+ .nexus-widget-grid>[data-size="full"] {grid-column:1/-1}
+ .nexus-widget-grid>[data-size="2x2"] {grid-row:span 2;align-self:stretch;min-height:14rem}
+ .nexus-widget-grid>[data-size="2x2"]>:first-child {min-height:100%}
+}

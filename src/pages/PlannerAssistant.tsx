@@ -15,7 +15,7 @@ export function PlanAssistant({day,candidates,time,sources,onAccept}:{day:string
  {candidates.map((x,i)=><p key={x.key}>{i+1}. {x.title} · {x.source}{x.due?" · "+x.due:""}</p>)}{!candidates.length&&<p>Nessuna attività aperta nelle fonti disponibili.</p>}
  {time!==null&&<p>Margine stimato: {time} min.</p>}<button disabled={!candidates.length} className={btn} onClick={async()=>setSent(await onAccept(candidates.map(x=>x.key)))}>Conferma e sostituisci le priorità del giorno</button>{sent&&<p role="status">Priorità salvate.</p>}
  <div role="status" className="flex items-center gap-2 text-sm">
-   <span aria-hidden="true" className={"h-3 w-3 rounded-full border border-accent "+(busy?"bg-accent motion-safe:animate-pulse":"")}/>
+   <span aria-hidden="true" className="nexus-core" data-active={busy || provider==="checking"} data-error={!!error || provider==="error"}/>
    {busy?"NEXUS CORE attende la risposta del modello…":provider==="checking"?"Verifica configurazione AI…":
      provider==="missing"?"Provider AI da configurare. Il piano locale è disponibile.":
      provider==="error"?"Configurazione AI indisponibile.":"NEXUS CORE · Provider configurato"}

@@ -1,7 +1,7 @@
 import {
   Activity, BarChart3, Bell, BookOpen, CalendarDays, FolderKanban, GraduationCap,
   Inbox, LayoutDashboard, ListChecks, Search, Settings, Sparkles, Target, Wallet,
-  Waypoints, Workflow, type LucideIcon,
+  Waypoints, Workflow, Star, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { path: string; label: string; icon: LucideIcon; ready: boolean };
@@ -29,10 +29,26 @@ export const NAV: NavItem[] = [
 
 export const BOTTOM = ["/", "/inbox", "/tasks", "/calendar"];
 
-export function orderedNav(order: string[]): NavItem[] {
+export const navIcons={default:undefined,star:Star,book:BookOpen,time:CalendarDays,folder:FolderKanban,ai:Sparkles,activity:Activity};
+export type NavStyle={label:string;group:string;icon:keyof typeof navIcons};
+export type Navigation=Record<string,NavStyle>;
+export const defaultNavStyle:NavStyle={label:"",group:"",icon:"default"};
+export function decodeNavigation(input:unknown):Navigation {
+  const result:Navigation={};
+  if(!input || typeof input!=="object")return result;
+  for(const item of NAV){
+    const row=(input as Record<string,Partial<NavStyle>>)[item.path];
+    if(row && typeof row.label==="string" && row.label.length<=60 && typeof row.group==="string" && row.group.length<=40 &&
+      row.icon && Object.prototype.hasOwnProperty.call(navIcons,row.icon))result[item.path]={label:row.label,group:row.group,icon:row.icon};
+  }
+  return result;
+}
+export function orderedNav(order: string[], config:Navigation={}): NavItem[] {
   const paths = new Set([...order, ...NAV.map(item => item.path)]);
   return Array.from(paths).flatMap(path => {
     const item = NAV.find(module => module.path === path);
-    return item ? [item] : [];
+    if(!item)return [];
+    const style=config[path];
+    return [style ? {...item,label:style.label||item.label,icon:navIcons[style.icon]??item.icon} : item];
   });
 }

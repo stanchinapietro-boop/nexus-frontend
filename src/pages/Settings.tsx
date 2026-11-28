@@ -1,8 +1,10 @@
 import ConfigurationFiles from "../ConfigurationFiles";
+import VisualSettings from "../VisualSettings";
+import InterfaceProfiles from "../InterfaceProfiles";
 import ThemeLibrary from "../ThemeLibrary";
 import WorkspaceSettings from "../WorkspaceSettings";
 import { isTheme, themes } from "../themes";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api, tt, type TTStatus } from "../api";
 import { logout } from "../auth";
@@ -11,12 +13,30 @@ import { getClockOptions, getDateOptions, prefsSaved, setPrefs, usePrefs, validZ
 
 const field = "w-full rounded-lg border border-line bg-ink px-3 py-2 text-base";
 const button = "inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm hover:bg-raised";
+const searchTerms: Record<string,string> = {
+  "Data e ora del Command Center":"fuso orario formato orologio",
+  "Workspace":"layout preset duplica rinomina spazio",
+  "Profili personali":"configurazione tema workspace profilo salva ripristina attiva",
+  "Aspetto e navigazione":"tema colore accento densità menu",
+  "Stile del workspace":"tipografia carattere titoli scala testo raggio schede sfondo barra laterale larghezza animazioni movimento accessibilità",
+  "Editor dei temi":"palette colore hex importa esporta duplica tema",
+  "Dashboard":"widget layout griglia libreria",
+  "Configurazione personale":"esporta importa backup ripristina json",
+  "Integrazioni":"ticktick attività", "Notifiche":"badge silenzioso orario",
+  "Dati e connessione":"api note esportazione", "Sessione":"logout esci",
+};
+const SearchContext=createContext("");
+function matches(title:string, query:string) {
+  return (title+" "+searchTerms[title]).toLocaleLowerCase("it").includes(query);
+}
 function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="space-y-3 rounded-xl border border-line bg-panel p-4 sm:p-5"><h2 className="text-lg font-semibold">{title}</h2>{children}</section>;
+  return <section hidden={!matches(title,useContext(SearchContext))} className="space-y-3 rounded-xl border border-line bg-panel p-4 sm:p-5"><h2 className="text-lg font-semibold">{title}</h2>{children}</section>;
 }
 
 export default function SettingsPage() {
   const prefs = usePrefs();
+  const [search,setSearch]=useState("");
+  const query=search.trim().toLocaleLowerCase("it");
   const [zone, setZone] = useState(prefs.timeZone);
   const [zoneError, setZoneError] = useState("");
   const [connection, setConnection] = useState<TTStatus | null>(null);
@@ -60,9 +80,10 @@ export default function SettingsPage() {
     } catch { setExportState("error"); }
     finally { exportBusy.current = false; }
   }
-  return <div className="mx-auto max-w-3xl space-y-4">
-    <h1 className="text-3xl font-semibold">Impostazioni</h1>
-    <p className="text-sm text-mute">Aspetto, orario e layout si conservano in questo browser.</p>
+  return <SearchContext.Provider value={query}><div className="mx-auto max-w-3xl space-y-4">
+    <header className="nexus-report-header"><h1 className="text-3xl font-semibold">Impostazioni</h1>
+      <label className="mt-3 block">Cerca impostazioni<input className={field+" mt-1"} value={search} type="search" onChange={e=>setSearch(e.target.value)} /></label></header>
+    {query && !Object.keys(searchTerms).some(title=>matches(title,query)) && <p role="status">Nessuna impostazione corrispondente.</p>}
     {!prefsSaved() && <p role="alert" className="text-amber-300">Il browser ha bloccato il salvataggio delle preferenze.</p>}
     <Panel title="Data e ora del Command Center">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -99,6 +120,8 @@ export default function SettingsPage() {
       <div><Link className={button} to="/menu">Gestisci i moduli e i preferiti</Link></div>
     </Panel>
     <Panel title="Editor dei temi"><ThemeLibrary/></Panel>
+    <Panel title="Stile del workspace"><VisualSettings/></Panel>
+    <Panel title="Profili personali"><InterfaceProfiles/></Panel>
     <Panel title="Dashboard"><DashboardControls key={prefs.activeProfile} /></Panel>
     <Panel title="Configurazione personale"><ConfigurationFiles/></Panel>
     <Panel title="Integrazioni">
@@ -120,5 +143,5 @@ export default function SettingsPage() {
       {exportState === "done" && <p role="status">Download delle note avviato.</p>}
     </Panel>
     <Panel title="Sessione"><button className={button} onClick={logout}>Esci da NEXUS</button></Panel>
-  </div>;
+  </div></SearchContext.Provider>;
 }

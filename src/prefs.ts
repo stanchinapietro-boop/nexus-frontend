@@ -1,5 +1,8 @@
 import { applyTheme, isTheme, validColors, validSavedTheme, type Colors, type SavedTheme, themes, type ThemeId } from "./themes";
 import { useSyncExternalStore } from "react";
+import { applyVisual, decodeVisual, defaultVisual, type Visual } from "./visual";
+import {decodePageLayouts,type PageLayouts} from "./pageLayouts";
+import {decodeNavigation,type Navigation} from "./nav";
 
 export const widgetNames = {
   tasks: "Attività di oggi",
@@ -14,16 +17,27 @@ export const widgetNames = {
   upcoming: "Prossimi eventi",
   ai: "Stato AI",
   insights: "Avanzamento scolastico",
+  clock:"Orologio", exams:"Prossimi esami", balance:"Saldo conti", income:"Entrate del mese",
+  spending:"Spese per categoria", goals:"Progresso obiettivi", habits:"Abitudini di oggi",
+  deadlines:"Attività in scadenza", health:"Ultimi allenamenti",
 } as const;
 export type WidgetId = keyof typeof widgetNames;
 export type WidgetInstance = WidgetId | `${WidgetId}~${number}`;
-export const defaultWidgets = Object.keys(widgetNames) as WidgetId[];
+export const widgetFormats={"1x1":"Piccolo · 1×1","2x1":"Medio · 2×1","2x2":"Grande · 2×2","4x1":"Ampio · 4×1",full:"Intera larghezza"} as const;
+export type WidgetFormat=keyof typeof widgetFormats;
+type WidgetFormats=Partial<Record<WidgetInstance,WidgetFormat>>;
+export const allWidgets = Object.keys(widgetNames) as WidgetId[];
+export const defaultWidgets:WidgetId[]=["tasks","focus","school","capture","notes","history","chart","modules","projects","upcoming","ai","insights"];
 export const widgetLimit = 128;
 export function widgetType(id: WidgetInstance): WidgetId {
   return id.split("~")[0] as WidgetId;
 }
 
 type FlatPrefs = {
+  visual: Visual;
+  pageLayouts: PageLayouts;
+  navigation: Navigation;
+  recentColors:string[];
   tasksView:string;tasksUrgency:number;
   theme: ThemeId;
   colors: Colors;
@@ -41,6 +55,7 @@ type FlatPrefs = {
   dashboardOrder: WidgetInstance[];
   dashboardHidden: WidgetInstance[];
   dashboardWide: WidgetInstance[];
+  dashboardSizes:WidgetFormats;
   density: "standard" | "compact";
   timeZone: string;
   clock: "system" | "12" | "24";
@@ -49,12 +64,16 @@ type FlatPrefs = {
 const KEY = "nexus.prefs";
 export const defaultWide: WidgetId[] = ["history"];
 const defaults: FlatPrefs = {
+  visual: defaultVisual,
+  pageLayouts:{},
+  navigation:{},
+  recentColors:[],
   tasksView:"all",tasksUrgency:1,
   colors: {}, savedThemes: [],
   theme: "dark", badges: true, quietFrom: "", quietTo: "",
   accent: themes.dark[1], hiddenTabs: [], hiddenWidgets: [],
   compactSidebar: false, favoritePaths: [], navOrder: [], recentCommands: [],
-  dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide,
+  dashboardOrder: defaultWidgets, dashboardHidden: [], dashboardWide: defaultWide, dashboardSizes:{},
   density: "standard", timeZone: "", clock: "system", dateFormat: "long",
 };
 
@@ -64,7 +83,7 @@ function strings(value: unknown) {
 function widgetIds(value: unknown): WidgetInstance[] {
   return strings(value).filter((id): id is WidgetInstance => {
     const match = /^([a-z]+)(?:~([1-9]\d{0,2}))?$/.exec(id);
-    return !!match && defaultWidgets.includes(match[1] as WidgetId) &&
+    return !!match && allWidgets.includes(match[1] as WidgetId) &&
       (!match[2] || Number(match[2]) <= widgetLimit);
   });
 }
@@ -79,10 +98,22 @@ function decodeFlat(value: unknown): FlatPrefs {
   if (!value || typeof value !== "object" || Array.isArray(value)) return defaults;
   const data = value as Record<string, unknown>;
   const requested = widgetIds(data.dashboardOrder);
-  const allowedCopies = new Set(requested.filter(id => id.includes("~")).slice(0, widgetLimit - defaultWidgets.length));
-  const order = requested.filter(id => !id.includes("~") || allowedCopies.has(id));
+  const required=(id:WidgetInstance)=>defaultWidgets.includes(id as WidgetId);
+  const extras=new Set(requested.filter(id=>!required(id)).slice(0,widgetLimit-defaultWidgets.length));
+  const order=requested.filter(id=>required(id)||extras.has(id));
   order.push(...defaultWidgets.filter(key => !order.includes(key)));
+  const sizes:WidgetFormats={};
+  if(data.dashboardSizes && typeof data.dashboardSizes==="object") {
+    for(const id of order){
+      const size=(data.dashboardSizes as Record<string,unknown>)[id];
+      if(typeof size==="string" && Object.prototype.hasOwnProperty.call(widgetFormats,size)) sizes[id]=size as WidgetFormat;
+    }
+  }
   return {
+    visual: decodeVisual(data.visual),
+    pageLayouts:decodePageLayouts(data.pageLayouts),
+    navigation:decodeNavigation(data.navigation),
+    recentColors: strings(data.recentColors).filter(v=>/^#[0-9a-f]{6}$/i.test(v)).slice(0,8),
     tasksView: typeof data.tasksView==="string"?data.tasksView:"all",
     tasksUrgency: [0,1,2,3,7].includes(Number(data.tasksUrgency))?Number(data.tasksUrgency):1,
     colors: validColors(data.colors) ? data.colors : {},
@@ -96,6 +127,7 @@ function decodeFlat(value: unknown): FlatPrefs {
     compactSidebar: data.compactSidebar === true, favoritePaths: strings(data.favoritePaths),
     navOrder: strings(data.navOrder), recentCommands: strings(data.recentCommands),
     dashboardOrder: order,
+    dashboardSizes:sizes,
     dashboardHidden: widgetIds(data.dashboardHidden).filter(id => order.includes(id)),
     dashboardWide: Array.isArray(data.dashboardWide) ? widgetIds(data.dashboardWide).filter(id => order.includes(id)) : defaultWide,
     density: data.density === "compact" ? "compact" : "standard",
@@ -104,13 +136,23 @@ function decodeFlat(value: unknown): FlatPrefs {
     dateFormat: data.dateFormat === "numeric" ? "numeric" : "long",
   };
 }
-const profileKeys = ["theme", "accent", "colors", "compactSidebar", "favoritePaths", "navOrder", "hiddenTabs",
-  "dashboardOrder", "dashboardHidden", "dashboardWide", "density"] as const;
+const profileKeys = ["visual", "theme", "accent", "colors", "compactSidebar", "favoritePaths", "navOrder", "hiddenTabs",
+  "dashboardOrder", "dashboardHidden", "dashboardWide", "dashboardSizes", "pageLayouts", "navigation", "density"] as const;
 type Appearance = Pick<FlatPrefs, typeof profileKeys[number]>;
 export type Workspace = { id: string; name: string; appearance: Appearance };
-export type Prefs = FlatPrefs & { activeProfile: string; profiles: Workspace[] };
+export type InterfaceProfile=Workspace & {workspaceId:string};
+export type Prefs = FlatPrefs & { activeProfile: string; profiles: Workspace[]; interfaceProfiles:InterfaceProfile[] };
+export function workspacePatch(prefs:Prefs,next:Workspace,profiles=prefs.profiles):Partial<Prefs>{
+  const saved=profiles.map(row=>row.id===prefs.activeProfile ? {...row,appearance:appearance(prefs)} : row);
+  return {profiles:saved,activeProfile:next.id,...(next.id===prefs.activeProfile ? appearance(prefs) : next.appearance)};
+}
 export function appearance(prefs: FlatPrefs): Appearance {
   return Object.fromEntries(profileKeys.map(key => [key, prefs[key]])) as Appearance;
+}
+export function profilePatch(prefs:Prefs,profile:InterfaceProfile):Partial<Prefs>{
+  const next=prefs.profiles.find(w=>w.id===profile.workspaceId);
+  if(!next)return {};
+  return {...workspacePatch(prefs,next),...profile.appearance};
 }
 export const defaultAppearance = appearance(defaults);
 export function decodePreferences(value: unknown): Prefs {
@@ -130,7 +172,15 @@ export function decodePreferences(value: unknown): Prefs {
     }
   }
   const activeProfile = profiles.find(row => row.id === data.activeProfile)?.id ?? profiles[0].id;
-  return { ...flat, activeProfile, profiles };
+  const interfaceProfiles:InterfaceProfile[]=[];
+  if(Array.isArray(data.interfaceProfiles)){
+    for(const row of data.interfaceProfiles.slice(0,12)){
+      if(!row || typeof row.name!=="string" || !row.name.trim() || typeof row.id!=="string" || !/^[a-z0-9-]{1,36}$/.test(row.id)
+        || typeof row.workspaceId!=="string" || !/^[a-z0-9-]{1,36}$/.test(row.workspaceId) || interfaceProfiles.some(p=>p.id===row.id))continue;
+      interfaceProfiles.push({id:row.id,name:row.name.trim().slice(0,60),workspaceId:row.workspaceId,appearance:appearance(decodeFlat(row.appearance))});
+    }
+  }
+  return { ...flat, activeProfile, profiles, interfaceProfiles };
 }
 function readSaved(): Prefs {
   return decodePreferences(JSON.parse(localStorage.getItem(KEY) ?? "null"));
@@ -144,6 +194,7 @@ const listeners = new Set<() => void>();
 function change(next: Prefs) {
   current = next;
   applyTheme(next.theme, next.accent, next.colors);
+  applyVisual(next.visual);
   for (const listener of listeners) listener();
 }
 if (typeof window !== "undefined") {
@@ -201,4 +252,7 @@ export function displayDay(date: Date, prefs: Prefs) {
   const field = (type: "year" | "month" | "day") => parts.find(part => part.type === type)?.value;
   return `${field("year")}-${field("month")}-${field("day")}`;
 }
-if (typeof document !== "undefined") applyTheme(current.theme, current.accent, current.colors);
+if (typeof document !== "undefined") {
+  applyTheme(current.theme, current.accent, current.colors);
+  applyVisual(current.visual);
+}
